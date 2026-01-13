@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const initialState = {
-  name: "",
-  email: "",
-  password: "",
-  confirmPassword: "",
-};
+import Navbar from "@/components/Navbar";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function AuthPage() {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState(initialState);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [token, setToken] = useState(null);
@@ -31,14 +31,15 @@ export default function AuthPage() {
     setMessage(null);
 
     const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
-    const payload = mode === "login"
-      ? { email: form.email, password: form.password }
-      : {
-          name: form.name,
-          email: form.email,
-          password: form.password,
-          confirmPassword: form.confirmPassword,
-        };
+    const payload =
+      mode === "login"
+        ? { email: form.email, password: form.password }
+        : {
+            name: form.name,
+            email: form.email,
+            password: form.password,
+            confirmPassword: form.confirmPassword,
+          };
 
     try {
       const res = await fetch(endpoint, {
@@ -51,10 +52,14 @@ export default function AuthPage() {
 
       if (mode === "login" && data.token) {
         localStorage.setItem("auth_token", data.token);
-        setToken(data.token);
+        setMessage({ type: "success", text: data.message || "Login successful!" });
+        // Redirect to homepage after short delay
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 1000);
+      } else {
+        setMessage({ type: "success", text: data.message || `Success: ${mode}` });
       }
-
-      setMessage({ type: "success", text: data.message || `Success: ${mode}` });
     } catch (err) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -65,110 +70,133 @@ export default function AuthPage() {
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
     setToken(null);
-    setMessage({ type: "success", text: "Logged out and token cleared." });
+    setMessage({ type: "success", text: "Logged out successfully." });
   };
 
-  const fields = mode === "login"
-    ? [
-        { label: "Email", value: form.email, onChange: onChange("email"), type: "email" },
-        { label: "Password", value: form.password, onChange: onChange("password"), type: "password" },
-      ]
-    : [
-        { label: "Name", value: form.name, onChange: onChange("name") },
-        { label: "Email", value: form.email, onChange: onChange("email"), type: "email" },
-        { label: "Password", value: form.password, onChange: onChange("password"), type: "password" },
-        { label: "Confirm Password", value: form.confirmPassword, onChange: onChange("confirmPassword"), type: "password" },
-      ];
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
-        <header className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Auth Sandbox</p>
-            <h1 className="text-2xl font-semibold">{mode === "login" ? "Login" : "Create account"}</h1>
-            <p className="text-sm text-slate-400">Hits the Next.js API routes you set up.</p>
-          </div>
-          <div className="flex gap-2">
+    <div className="bg-secondary min-h-screen font-inter">
+      {/* Header */}
+      <Navbar />
+
+      {/* Main Content */}
+      <main className="min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">
+        <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-xl shadow-lg fade-in">
+          {/* Mode Toggle */}
+          <div className="flex justify-center gap-2 mb-6">
             <button
               onClick={() => setMode("login")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                mode === "login" ? "bg-white text-slate-900" : "bg-slate-800 text-slate-200"
+              className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg font-medium transition ${
+                mode === "login"
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               Login
             </button>
             <button
-              onClick={() => setMode("signup")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                mode === "signup" ? "bg-white text-slate-900" : "bg-slate-800 text-slate-200"
+              onClick={() => setMode("register")}
+              className={`px-6 py-2 rounded-lg font-medium transition ${
+                mode === "register"
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              Signup
+              Register
             </button>
           </div>
-        </header>
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg ring-1 ring-slate-800/50"
-        >
-          <div className="grid gap-4">
-            {fields.map((field) => (
-              <label key={field.label} className="grid gap-2 text-sm text-slate-200">
-                <span>{field.label}</span>
+          <h2 className="text-3xl font-bold text-center text-primary">
+            {mode === "login" ? "Login" : "Create Account"}
+          </h2>
+          <p className="text-center text-gray-600 mt-2">
+            {mode === "login"
+              ? "Access your Smart Admission Guide account"
+              : "Start your smart admission journey"}
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            {mode === "register" && (
+              <div>
+                <label className="block text-gray-700 font-medium">Full Name</label>
                 <input
-                  type={field.type || "text"}
-                  value={field.value}
-                  onChange={field.onChange}
+                  type="text"
+                  value={form.name}
+                  onChange={onChange("name")}
                   required
-                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-50 outline-none ring-1 ring-transparent transition focus:ring-sky-500"
+                  placeholder="Enter your name"
+                  className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
                 />
-              </label>
-            ))}
-          </div>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 w-full rounded-lg bg-sky-500 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Working..." : mode === "login" ? "Login" : "Create account"}
-          </button>
-        </form>
-
-        {message && (
-          <div
-            className={`rounded-lg px-4 py-3 text-sm ${
-              message.type === "success" ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-200 ring-1 ring-slate-800/60">
-          <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold">Session token</p>
-              <p className="text-slate-400">Stored in localStorage as auth_token</p>
+              <label className="block text-gray-700 font-medium">Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={onChange("email")}
+                required
+                placeholder="Enter your email"
+                className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
+              />
             </div>
-            <button
-              onClick={handleLogout}
-              className="rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-slate-500"
-            >
-              Logout / clear token
-            </button>
-          </div>
-          <div className="mt-3 rounded border border-slate-800 bg-black/40 p-3 font-mono text-xs text-slate-100">
-            {token ? `${token.slice(0, 32)}...` : "No token saved yet."}
-          </div>
-        </section>
 
-        <div className="text-sm text-slate-400">
-          Forgot password? Go to <a className="text-sky-400 hover:underline" href="/auth/forgot-password">/auth/forgot-password</a>.
+            <PasswordInput
+              label="Password"
+              value={form.password}
+              onChange={onChange("password")}
+              placeholder={mode === "login" ? "Enter your password" : "Create password"}
+              required
+            />
+
+            {mode === "register" && (
+              <PasswordInput
+                label="Confirm Password"
+                value={form.confirmPassword}
+                onChange={onChange("confirmPassword")}
+                placeholder="Confirm password"
+                required
+              />
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+            >
+              {loading ? "Please wait..." : mode === "login" ? "Login" : "Register"}
+            </button>
+          </form>
+
+          {message && (
+            <div
+              className={`mt-4 p-3 rounded-lg text-sm text-center ${
+                message.type === "success"
+                  ? "bg-success/10 text-success border border-success/20"
+                  : "bg-danger/10 text-danger border border-danger/20"
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
+          {mode === "login" && (
+            <p className="text-center text-gray-600 mt-4 text-sm">
+              Forgot your password?{" "}
+              <a href="/auth/forgot-password" className="text-primary font-semibold hover:underline">
+                Reset it here
+              </a>
+            </p>
+          )}
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-6 text-center text-gray-600">
+          <p>&copy; 2026 Smart Admission Guide. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
