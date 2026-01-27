@@ -40,6 +40,8 @@ export default function HeroSection({ title, subtitle, primaryCta, secondaryCta,
               src={imageSrc} 
               alt="Hero" 
               fill
+              quality={100}
+              priority
               className="object-cover rounded-lg"
             />
           </div>
