@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const checkAuth = () => {
@@ -23,7 +25,7 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
     setIsLoggedIn(false);
-    window.location.href = "/";
+    router.push("/auth");
   };
 
   return (
@@ -51,15 +53,18 @@ export default function Navbar() {
 
           <nav className="hidden md:flex gap-6 items-center">
             <Link href="/" className="text-gray-700 hover:text-primary transition">Home</Link>
-            <Link href="/universities" className="text-gray-700 hover:text-primary transition">Universities</Link>
             <Link href="/about" className="text-gray-700 hover:text-primary transition">About</Link>
+            <Link href="/recommendation" className="text-gray-700 hover:text-primary transition">Universities</Link>
             {isLoggedIn ? (
               <>
-                <Link href="/profile" className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Profile</Link>
+                <Link href="/dashboard" className="text-gray-700 hover:text-primary transition">Dashboard</Link>
                 <button onClick={handleLogout} className="bg-danger text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Logout</button>
               </>
             ) : (
-              <Link href="/auth" className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Login / Register</Link>
+              <>
+                <Link href="/auth?mode=login" className="text-gray-700 hover:text-primary transition">Login</Link>
+                <Link href="/auth?mode=register" className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Register</Link>
+              </>
             )}
           </nav>
         </div>
@@ -67,15 +72,18 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <nav className="md:hidden mt-4 pb-4 space-y-3">
             <Link href="/" className="block text-gray-700 hover:text-primary transition py-2">Home</Link>
-            <Link href="/universities" className="block text-gray-700 hover:text-primary transition py-2">Universities</Link>
             <Link href="/about" className="block text-gray-700 hover:text-primary transition py-2">About</Link>
+            <Link href="/recommendation" className="block text-gray-700 hover:text-primary transition py-2">Universities</Link>
             {isLoggedIn ? (
               <>
-                <Link href="/profile" className="block bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-center">Profile</Link>
-                <button onClick={handleLogout} className="w-full bg-danger text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Logout</button>
+                <Link href="/dashboard" className="block text-gray-700 hover:text-primary transition py-2">Dashboard</Link>
+                <button onClick={handleLogout} className="w-full bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Logout</button>
               </>
             ) : (
-              <Link href="/auth" className="block bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-center">Login / Register</Link>
+              <>
+                <Link href="/auth?mode=login" className="block text-gray-700 hover:text-primary transition py-2">Login</Link>
+                <Link href="/auth?mode=register" className="block bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-center">Register</Link>
+              </>
             )}
           </nav>
         )}
