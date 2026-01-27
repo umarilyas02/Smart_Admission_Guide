@@ -28,16 +28,13 @@ export async function POST(request) {
       );
     }
 
-    const connection = await pool.getConnection();
-
     // Check if user already exists
-    const [existingUser] = await connection.query(
-      'SELECT id FROM users WHERE email = ?',
+    const { rows: existingUser } = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
       [email]
     );
 
     if (existingUser.length > 0) {
-      connection.release();
       return Response.json(
         { error: 'User with this email already exists' },
         { status: 409 }
@@ -48,12 +45,10 @@ export async function POST(request) {
     const hashedPassword = await hashPassword(password);
 
     // Create user
-    const [result] = await connection.query(
-      'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+    const { rows: created } = await pool.query(
+      'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id',
       [name, email, hashedPassword]
     );
-
-    connection.release();
 
     // Send welcome email
     await sendWelcomeEmail(email, name);
@@ -61,7 +56,7 @@ export async function POST(request) {
     return Response.json(
       {
         message: 'User created successfully',
-        userId: result.insertId,
+        userId: created[0].id,
       },
       { status: 201 }
     );

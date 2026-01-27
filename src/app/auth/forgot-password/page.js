@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,6 +23,8 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed");
       setMessage({ type: "success", text: data.message });
+      // Send the user to reset-password with their email prefilled
+      router.push(`/auth/reset-password?email=${encodeURIComponent(email)}`);
     } catch (err) {
       setMessage({ type: "error", text: err.message });
     } finally {

@@ -11,10 +11,11 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
+    "google-auth-library": "^10.5.0",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.16.0",
     "next": "16.1.1",
     "nodemailer": "^7.0.12",
+    "pg": "^8.11.5",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

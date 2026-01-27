@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import PasswordInput from "@/components/PasswordInput";
 
@@ -15,11 +15,47 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [token, setToken] = useState(null);
+  const googleButtonRef = useRef(null);
+
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     const saved = localStorage.getItem("auth_token");
     if (saved) setToken(saved);
   }, []);
+
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    const initializeGsi = () => {
+      if (!window.google || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: "100%",
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      initializeGsi();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = initializeGsi;
+    document.head.appendChild(script);
+
+    return () => {
+      script.onload = null;
+    };
+  }, [googleClientId]);
 
   const onChange = (key) => (e) => {
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
@@ -60,6 +96,32 @@ export default function AuthPage() {
       } else {
         setMessage({ type: "success", text: data.message || `Success: ${mode}` });
       }
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleCredential = async (response) => {
+    if (!response?.credential) return;
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Google login failed");
+
+      localStorage.setItem("auth_token", data.token);
+      setMessage({ type: "success", text: data.message || "Login successful!" });
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 800);
     } catch (err) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -167,6 +229,23 @@ export default function AuthPage() {
               {loading ? "Please wait..." : mode === "login" ? "Login" : "Register"}
             </button>
           </form>
+
+          <div className="mt-4">
+            <div className="flex items-center gap-2 text-gray-500 text-sm">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span>or</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            <div className="mt-3">
+              {googleClientId ? (
+                <div ref={googleButtonRef} className="flex justify-center" />
+              ) : (
+                <div className="text-center text-xs text-gray-500">
+                  Google sign-in is not configured.
+                </div>
+              )}
+            </div>
+          </div>
 
           {message && (
             <div

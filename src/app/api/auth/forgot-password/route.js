@@ -1,5 +1,4 @@
 import pool from '@/lib/db';
-import { generateResetToken } from '@/lib/auth';
 import { sendPasswordResetEmail } from '@/lib/email';
 
 export async function POST(request) {
@@ -13,15 +12,11 @@ export async function POST(request) {
       );
     }
 
-    const connection = await pool.getConnection();
-
     // Check if user exists
-    const [users] = await connection.query(
-      'SELECT id, email FROM users WHERE email = ?',
+    const { rows: users } = await pool.query(
+      'SELECT id, email FROM users WHERE email = $1',
       [email]
     );
-
-    connection.release();
 
     if (users.length === 0) {
       // Don't reveal if email exists (security best practice)
@@ -33,21 +28,31 @@ export async function POST(request) {
 
     const user = users[0];
 
-    // Generate reset token
-    const resetToken = generateResetToken(user.id);
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
 
-    // Send email with reset link
-    const emailSent = await sendPasswordResetEmail(email, resetToken);
+    // Store OTP in database
+    await pool.query(
+      'INSERT INTO password_reset_otps (user_id, email, otp, expires_at) VALUES ($1, $2, $3, $4)',
+      [user.id, email, otp, expiresAt]
+    );
+
+    // Send OTP via email
+    const emailSent = await sendPasswordResetEmail(email, otp);
 
     if (!emailSent) {
+      console.error('Failed to send OTP to:', email);
       return Response.json(
-        { error: 'Failed to send reset email. Please try again later.' },
+        { error: 'Failed to send OTP email. Please try again later.' },
         { status: 500 }
       );
     }
 
+    console.log('OTP sent successfully to:', email);
+
     return Response.json(
-      { message: 'If an account exists with this email, a reset link has been sent' },
+      { message: 'If an account exists with this email, an OTP has been sent' },
       { status: 200 }
     );
   } catch (error) {

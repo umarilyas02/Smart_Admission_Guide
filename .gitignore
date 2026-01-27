@@ -41,6 +41,41 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.env.local
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+.project
+.classpath
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+.cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+
+# Build artifacts
+dist/
+
+# Local authentication tokens (dev only)
+.login_token
+
+# Scripts and old data (development)
 /scripts/*
 /old_data/*
+dockerfile
+GOOGLE_OAUTH_SETUP.md
+AUTHENTICATION_SETUP.md
+scripts

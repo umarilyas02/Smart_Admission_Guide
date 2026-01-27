@@ -8,27 +8,30 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendPasswordResetEmail = async (email, resetToken) => {
-  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}`;
-
+export const sendPasswordResetEmail = async (email, otp) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Password Reset Request',
+    subject: 'Password Reset OTP',
     html: `
       <h1>Password Reset</h1>
-      <p>You requested a password reset. Click the link below to reset your password:</p>
-      <a href="${resetLink}">Reset Password</a>
-      <p>This link expires in 1 hour.</p>
+      <p>You requested a password reset. Use the OTP below to reset your password:</p>
+      <h2 style="background-color: #f0f0f0; padding: 10px; text-align: center; letter-spacing: 5px;">${otp}</h2>
+      <p>This OTP expires in 10 minutes.</p>
       <p>If you didn't request this, please ignore this email.</p>
     `,
   };
 
   try {
+    console.log('Attempting to send email to:', email);
+    console.log('Using email service:', process.env.EMAIL_SERVICE);
+    console.log('From email:', process.env.EMAIL_USER);
     await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully to:', email);
     return true;
   } catch (error) {
     console.error('Error sending email:', error);
+    console.error('Error details:', error.message);
     return false;
   }
 };

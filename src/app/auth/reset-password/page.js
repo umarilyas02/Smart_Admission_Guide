@@ -1,19 +1,24 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import PasswordInput from "@/components/PasswordInput";
 
 function ResetPasswordForm() {
-  const searchParams = useSearchParams();
-  const tokenParam = searchParams.get("token") || "";
-
-  const [token, setToken] = useState(tokenParam);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const searchParams = useSearchParams();
+
+  // Prefill email when arriving from the forgot-password flow
+  useEffect(() => {
+    const initialEmail = searchParams.get("email") || "";
+    if (initialEmail) setEmail(initialEmail);
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,7 +29,7 @@ function ResetPasswordForm() {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password, confirmPassword }),
+        body: JSON.stringify({ email, otp, password, confirmPassword }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed");
@@ -53,14 +58,27 @@ function ResetPasswordForm() {
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
-              <label className="block text-gray-700 font-medium">Reset Token</label>
-              <textarea
-                value={token}
+              <label className="block text-gray-700 font-medium">Email</label>
+              <input
+                type="email"
+                value={email}
                 required
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Paste token from email"
-                rows="3"
-                className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none font-mono text-sm"
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-700 font-medium">OTP</label>
+              <input
+                type="text"
+                value={otp}
+                required
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="Enter 6-digit OTP from email"
+                maxLength="6"
+                className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-center text-2xl tracking-widest"
               />
             </div>
 

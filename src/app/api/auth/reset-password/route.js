@@ -1,14 +1,14 @@
 import pool from '@/lib/db';
-import { hashPassword, verifyToken } from '@/lib/auth';
+import { hashPassword } from '@/lib/auth';
 
 export async function POST(request) {
   try {
-    const { token, password, confirmPassword } = await request.json();
+    const { email, otp, password, confirmPassword } = await request.json();
 
     // Validation
-    if (!token || !password || !confirmPassword) {
+    if (!email || !otp || !password || !confirmPassword) {
       return Response.json(
-        { error: 'Token and password are required' },
+        { error: 'Email, OTP and password are required' },
         { status: 400 }
       );
     }
@@ -27,30 +27,51 @@ export async function POST(request) {
       );
     }
 
-    // Verify token
-    const decoded = verifyToken(token);
+    // Verify OTP
+    const { rows: otpRecords } = await pool.query(
+      'SELECT user_id, expires_at, is_used FROM password_reset_otps WHERE email = $1 AND otp = $2 ORDER BY created_at DESC LIMIT 1',
+      [email, otp]
+    );
 
-    if (!decoded) {
+    if (otpRecords.length === 0) {
       return Response.json(
-        { error: 'Invalid or expired reset token' },
+        { error: 'Invalid OTP' },
         { status: 401 }
       );
     }
 
-    const userId = decoded.userId;
+    const otpRecord = otpRecords[0];
+
+    if (otpRecord.is_used) {
+      return Response.json(
+        { error: 'OTP has already been used' },
+        { status: 401 }
+      );
+    }
+
+    if (new Date() > new Date(otpRecord.expires_at)) {
+      return Response.json(
+        { error: 'OTP has expired' },
+        { status: 401 }
+      );
+    }
+
+    const userId = otpRecord.user_id;
 
     // Hash new password
     const hashedPassword = await hashPassword(password);
 
-    const connection = await pool.getConnection();
-
     // Update password
-    await connection.query(
-      'UPDATE users SET password = ? WHERE id = ?',
+    await pool.query(
+      'UPDATE users SET password = $1 WHERE id = $2',
       [hashedPassword, userId]
     );
 
-    connection.release();
+    // Mark OTP as used
+    await pool.query(
+      'UPDATE password_reset_otps SET is_used = TRUE WHERE email = $1 AND otp = $2',
+      [email, otp]
+    );
 
     return Response.json(
       { message: 'Password reset successfully' },

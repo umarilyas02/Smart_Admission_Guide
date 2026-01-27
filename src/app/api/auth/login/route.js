@@ -13,24 +13,20 @@ export async function POST(request) {
       );
     }
 
-    const connection = await pool.getConnection();
-
     // Find user by email
-    const [users] = await connection.query(
-      'SELECT id, name, email, password FROM users WHERE email = ?',
+    const { rows } = await pool.query(
+      'SELECT id, name, email, password FROM users WHERE email = $1',
       [email]
     );
 
-    connection.release();
-
-    if (users.length === 0) {
+    if (rows.length === 0) {
       return Response.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    const user = users[0];
+    const user = rows[0];
 
     // Compare passwords
     const isPasswordValid = await comparePassword(password, user.password);
