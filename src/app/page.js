@@ -29,7 +29,7 @@ export default function HomePage() {
             label: "Check Admission Chance",
             href: "/admission-chance",
           }}
-          imageSrc="/images/hero.jfif"
+          imageSrc="/images/hero.jpg"
         />
 
         {/* How It Works Section */}
