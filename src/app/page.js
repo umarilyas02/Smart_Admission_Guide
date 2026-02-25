@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -7,6 +8,19 @@ import HeroSection from "@/components/HeroSection";
 import Card from "@/components/Card";
 
 export default function HomePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("auth_token");
+      setIsLoggedIn(!!token);
+    };
+
+    checkAuth();
+    window.addEventListener("storage", checkAuth);
+    return () => window.removeEventListener("storage", checkAuth);
+  }, []);
+
   return (
     <div className="bg-white min-h-screen font-inter">
       <Navbar />
@@ -21,10 +35,14 @@ export default function HomePage() {
             </>
           }
           subtitle="Smart Admission Guide helps intermediate students choose the best university and program using AI-powered recommendations."
-          primaryCta={{
-            label: "Get Started",
-            href: "/auth?mode=register",
-          }}
+          primaryCta={
+            isLoggedIn
+              ? null
+              : {
+                  label: "Get Started",
+                  href: "/auth?mode=register",
+                }
+          }
           secondaryCta={{
             label: "Check Admission Chance",
             href: "/admission-chance",
@@ -128,10 +146,10 @@ export default function HomePage() {
           </p>
 
           <a
-            href="/auth?mode=register"
+            href="/admission-probability"
             className="inline-block mt-6 bg-primary text-white px-8 py-3 rounded-lg shadow hover:bg-blue-700 transition"
           >
-            Create Free Account
+            Admission Probability
           </a>
         </section>
       </main>
