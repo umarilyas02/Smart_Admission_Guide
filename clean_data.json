@@ -1,0 +1,24 @@
+{
+    "project": "Smart Admission Guide",
+    "pipeline_stage": "Cleaned and Normalized",
+    "data": [
+        {
+            "university_name": "FAST NUCES",
+            "event_type": "Combined_Admission_Data",
+            "start_date": "May 19, 2026",
+            "end_date": "Jul 4, 2026",
+            "programs_offered": "Computer Science, Software Engineering, Artificial Intelligence, Data Science, Cyber Security, Business Analytics, Accounting and Finance, Business Administration, Civil Engineering, Electrical Engineering, Mathematics",
+            "status": "Upcoming",
+            "details": "Admission Schedule Admission Schedule Home Admissions Admission Schedule Updated on: 19-May-2025 Tentative Admission Schedule 2025 Undergraduate Prog..."
+        },
+        {
+            "university_name": "UMT Sialkot",
+            "event_type": "Combined_Admission_Data",
+            "start_date": "",
+            "end_date": "",
+            "programs_offered": "Computer Science, Software Engineering, Artificial Intelligence, Information Technology, Accounting and Finance, Business Administration, Electrical Engineering, Mechanical Engineering, Mathematics, Clinical Psychology, English Literature, Media and Communication, Human Nutrition and Dietetics, Biotechnology",
+            "status": "Dates Pending",
+            "details": "UNIVERSITY OF MANAGEMENT AND TECHNOLOGY UMT.EDU.PK Home Careers ILM Fund Alumni Directory Downloads Jobs Toggle navigation About UMT Founder's Messag..."
+        }
+    ]
+}

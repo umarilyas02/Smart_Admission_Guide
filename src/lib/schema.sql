@@ -72,7 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_students_user_id ON students(user_id);
 -- Universities table
 CREATE TABLE IF NOT EXISTS universities (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL UNIQUE,
   location VARCHAR(255),
   type VARCHAR(50),
   ranking INT,
@@ -84,6 +84,21 @@ CREATE TABLE IF NOT EXISTS universities (
 
 CREATE INDEX IF NOT EXISTS idx_universities_name ON universities(name);
 CREATE INDEX IF NOT EXISTS idx_universities_location ON universities(location);
+
+-- University events table: admission schedules, important dates, etc.
+CREATE TABLE IF NOT EXISTS university_events (
+  id SERIAL PRIMARY KEY,
+  university_id INT NOT NULL REFERENCES universities(id) ON DELETE CASCADE,
+  event_type VARCHAR(255),
+  start_date DATE,
+  end_date DATE,
+  status VARCHAR(100),
+  details TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_university_events_university_id ON university_events(university_id);
+CREATE INDEX IF NOT EXISTS idx_university_events_start_date ON university_events(start_date);
 
 -- Programs table
 CREATE TABLE IF NOT EXISTS programs (
