@@ -16,16 +16,6 @@ async function ensureEventsTable() {
   `);
 }
 
-async function ensureUniversitiesUniqueIndex() {
-  try {
-    // Create a unique index on name if it doesn't exist. If duplicates exist this will fail.
-    await query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_universities_name ON universities(name)`);
-  } catch (err) {
-    // If creating the unique index fails (e.g., due to duplicates), log and continue.
-    console.warn('Could not create unique index on universities.name:', err.message || err);
-  }
-}
-
 function parseDate(str) {
   if (!str) return null;
   const d = new Date(str);
@@ -49,17 +39,34 @@ function validateItem(it) {
   return { valid: errors.length === 0, errors };
 }
 
+async function clearUniversityData() {
+  // Removing universities cascades to programs, scholarships, events, admissions, etc.
+  await query('DELETE FROM universities');
+}
+
+async function findUniversityIdByName(name) {
+  const existing = await queryOne(
+    'SELECT id FROM universities WHERE lower(name) = lower($1) ORDER BY id ASC LIMIT 1',
+    [name]
+  );
+  return existing ? existing.id : null;
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
     const items = Array.isArray(body) ? body : body.data || [];
+    const replace = Boolean(body?.replace);
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'No university data provided' }, { status: 400 });
     }
 
     await ensureEventsTable();
-    await ensureUniversitiesUniqueIndex();
+
+    if (replace) {
+      await clearUniversityData();
+    }
 
     const inserted = [];
 
@@ -71,18 +78,26 @@ export async function POST(req) {
       }
 
       const name = (it.university_name || it.name || '').trim();
+      let universityId = await findUniversityIdByName(name);
 
-      // Upsert university by name (requires unique constraint on universities.name)
-      const upsertSql = `INSERT INTO universities(name, description, website, created_at)
-        VALUES($1,$2,$3,NOW())
-        ON CONFLICT (name) DO UPDATE SET
-          description = COALESCE(EXCLUDED.description, universities.description),
-          website = COALESCE(EXCLUDED.website, universities.website),
-          updated_at = NOW()
-        RETURNING id`;
-
-      const res = await query(upsertSql, [name, it.details || null, it.website || null]);
-      const universityId = res.rows[0].id;
+      if (universityId) {
+        await query(
+          `UPDATE universities
+           SET description = COALESCE($2, description),
+               website = COALESCE($3, website),
+               updated_at = NOW()
+           WHERE id = $1`,
+          [universityId, it.details || null, it.website || null]
+        );
+      } else {
+        const res = await query(
+          `INSERT INTO universities(name, description, website, created_at)
+           VALUES($1,$2,$3,NOW())
+           RETURNING id`,
+          [name, it.details || null, it.website || null]
+        );
+        universityId = res.rows[0].id;
+      }
 
       const start = parseDate(it.start_date || it.start || '');
       const end = parseDate(it.end_date || it.end || '');

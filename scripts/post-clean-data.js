@@ -7,7 +7,8 @@ async function main() {
     console.error('clean_data.json not found at', file);
     process.exit(1);
   }
-  const body = fs.readFileSync(file, 'utf8');
+  const raw = fs.readFileSync(file, 'utf8');
+  const body = JSON.stringify({ replace: true, data: JSON.parse(raw).data || [] });
   const url = process.env.TARGET_URL || 'http://localhost:3000/api/universities';
 
   // Use global fetch when available (Node 18+), otherwise try node-fetch

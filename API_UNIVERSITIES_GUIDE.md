@@ -51,6 +51,8 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/api/universities' `
 
 **Ingest university and admission data from JSON.**
 
+If you send `{ "replace": true, "data": [...] }`, the API clears existing university records first, then inserts the new values from the payload. This is the recommended mode when you want the database to reflect only the latest dataset.
+
 #### Request
 
 - **Content-Type:** `application/json`
@@ -114,6 +116,25 @@ Or directly as an array:
   "inserted": [
     { "universityId": 1, "name": "FAST NUCES" },
     { "universityId": 2, "name": "UMT Sialkot" }
+  ]
+}
+```
+
+#### Replace Mode Example
+
+```json
+{
+  "replace": true,
+  "data": [
+    {
+      "university_name": "FAST NUCES",
+      "event_type": "Combined_Admission_Data",
+      "start_date": "May 19, 2026",
+      "end_date": "Jul 4, 2026",
+      "programs_offered": "Computer Science, Software Engineering",
+      "status": "Upcoming",
+      "details": "..."
+    }
   ]
 }
 ```
@@ -256,7 +277,7 @@ Empty strings treated as `NULL`.
 Applies `src/lib/schema.sql` to your database via Node (no `psql` required on Windows).
 
 ### `node scripts/post-clean-data.js`
-POSTs `clean_data.json` from project root to `http://localhost:3000/api/universities`.
+POSTs `clean_data.json` from project root to `http://localhost:3000/api/universities` using replace mode so only the newest dataset remains in the DB.
 
 Optional: Set `TARGET_URL` env var to POST to a different endpoint:
 ```powershell
@@ -302,7 +323,7 @@ node scripts/dedupe-universities.js
 # 4. Start dev server (in another terminal)
 npm run dev
 
-# 5. POST clean_data.json
+# 5. POST clean_data.json (replace old university rows)
 node scripts/post-clean-data.js
 
 # 6. Fetch and verify
