@@ -1,5 +1,6 @@
 "use client";
 
+import { MapPin } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -68,7 +69,7 @@ export default function RecommendationPage() {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">{uni.name}</h3>
-                    <p className="text-gray-600 text-sm">📍 {uni.location}</p>
+                    <p className="text-gray-600 text-sm flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{uni.location}</p>
                   </div>
                   <div className="bg-primary text-white px-3 py-1 rounded-full text-sm font-semibold">
                     Cutoff: {uni.cutoff}%

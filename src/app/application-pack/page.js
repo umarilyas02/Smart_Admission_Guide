@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText, Mail, ClipboardList, FilePen, CheckCircle, Lightbulb } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -33,22 +34,22 @@ export default function ApplicationPackPage() {
     {
       name: "Personal Statement",
       description: "Customized personal statement for your application",
-      icon: "📄",
+      Icon: FileText,
     },
     {
       name: "Cover Letter",
       description: "Professional cover letter template",
-      icon: "✉️",
+      Icon: Mail,
     },
     {
       name: "CV/Resume",
       description: "Academic CV highlighting your achievements",
-      icon: "📋",
+      Icon: ClipboardList,
     },
     {
       name: "Recommendation Request",
       description: "Template for requesting recommendation letters",
-      icon: "📝",
+      Icon: FilePen,
     },
   ];
 
@@ -59,7 +60,7 @@ export default function ApplicationPackPage() {
       <main className="max-w-4xl mx-auto px-4 py-10">
         {!generated ? (
           <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg text-center">
-            <div className="text-6xl mb-4">📄</div>
+            <div className="flex justify-center mb-4"><FileText className="w-14 h-14 text-blue-600" /></div>
             <h1 className="text-2xl sm:text-3xl font-bold text-blue-600 mb-4">
               Application Pack Generator
             </h1>
@@ -160,7 +161,7 @@ export default function ApplicationPackPage() {
           <div className="space-y-6">
             {/* Success Message */}
             <div className="bg-green-50 border border-green-200 p-6 rounded-xl text-center">
-              <div className="text-4xl mb-2">✅</div>
+              <div className="flex justify-center mb-2"><CheckCircle className="w-10 h-10 text-green-500" /></div>
               <h2 className="text-xl font-bold text-green-800 mb-2">
                 Application Pack Generated!
               </h2>
@@ -182,7 +183,7 @@ export default function ApplicationPackPage() {
                     className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl">{doc.icon}</span>
+                      <doc.Icon className="w-7 h-7 text-blue-500 shrink-0" />
                       <div>
                         <p className="font-medium text-gray-800">{doc.name}</p>
                         <p className="text-sm text-gray-600">{doc.description}</p>
@@ -222,7 +223,7 @@ export default function ApplicationPackPage() {
 
             {/* Tips Section */}
             <div className="bg-blue-50 p-6 rounded-xl">
-              <h4 className="font-semibold text-gray-800 mb-3">💡 Pro Tips</h4>
+              <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><Lightbulb className="w-4 h-4 text-yellow-500" /> Pro Tips</h4>
               <ul className="space-y-2 text-sm text-gray-700">
                 <li>• Review and customize each document before submitting</li>
                 <li>• Have a teacher or mentor review your personal statement</li>

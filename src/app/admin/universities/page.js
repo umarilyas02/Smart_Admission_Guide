@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { MapPin } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 
 export default function UniversitiesManagement() {
@@ -86,7 +87,7 @@ export default function UniversitiesManagement() {
               <h3 className="text-xl font-bold text-gray-800 mb-2">
                 {university.name}
               </h3>
-              <p className="text-gray-600 mb-1">📍 {university.location}</p>
+              <p className="text-gray-600 mb-1 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{university.location}</p>
               <p className="text-sm text-gray-500 mb-4">
                 Type: {university.type}
               </p>

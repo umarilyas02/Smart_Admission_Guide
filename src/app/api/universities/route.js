@@ -11,16 +11,29 @@ async function ensureEventsTable() {
       end_date DATE,
       status VARCHAR(100),
       details TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
 }
 
 function parseDate(str) {
   if (!str) return null;
-  const d = new Date(str);
-  if (isNaN(d)) return null;
-  return d.toISOString().split('T')[0];
+  const value = String(str).trim();
+
+  // Keep date-only values stable by avoiding timezone conversion.
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function validateItem(it) {
@@ -115,10 +128,16 @@ export async function POST(req) {
           [universityId, it.event_type || 'admission', start, end, it.status || null, it.details || null]
         );
       } else {
-        // Optionally update status/details if changed
+        // Refresh the existing event so the latest scrape time is visible in the table.
         await query(
-          `UPDATE university_events SET status = COALESCE($1, status), details = COALESCE($2, details) WHERE id = $3`,
-          [it.status || null, it.details || null, existingEvent.id]
+          `UPDATE university_events
+           SET status = COALESCE($1, status),
+               details = COALESCE($2, details),
+               start_date = COALESCE($3, start_date),
+               end_date = COALESCE($4, end_date),
+               updated_at = NOW()
+           WHERE id = $5`,
+          [it.status || null, it.details || null, start, end, existingEvent.id]
         );
       }
 
@@ -161,7 +180,7 @@ export async function GET() {
     const results = [];
     for (const u of universities) {
       const events = await queryMany(
-        `SELECT id, event_type, start_date, end_date, status, details, created_at
+        `SELECT id, event_type, start_date, end_date, status, details, created_at, updated_at
          FROM university_events WHERE university_id=$1 ORDER BY start_date NULLS LAST`,
         [u.id]
       );

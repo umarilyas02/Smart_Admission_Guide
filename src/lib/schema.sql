@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS university_events (
   status VARCHAR(100),
   details TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
+  ,updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_university_events_university_id ON university_events(university_id);

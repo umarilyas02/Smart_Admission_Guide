@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -33,23 +34,23 @@ export default function AboutPage() {
               </h2>
               <ul className="space-y-3 text-gray-600 mb-6">
                 <li className="flex items-start">
-                  <span className="text-primary font-bold mr-3">✓</span>
+                  <Check className="w-4 h-4 text-primary mt-1 shrink-0 mr-2" />
                   <span>AI-powered university recommendations based on your academic profile</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-primary font-bold mr-3">✓</span>
+                  <Check className="w-4 h-4 text-primary mt-1 shrink-0 mr-2" />
                   <span>Admission chance calculator with real merit cut-offs</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-primary font-bold mr-3">✓</span>
+                  <Check className="w-4 h-4 text-primary mt-1 shrink-0 mr-2" />
                   <span>Interactive chatbot for instant admission guidance</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-primary font-bold mr-3">✓</span>
+                  <Check className="w-4 h-4 text-primary mt-1 shrink-0 mr-2" />
                   <span>Comprehensive university database with programs and scholarships</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-primary font-bold mr-3">✓</span>
+                  <Check className="w-4 h-4 text-primary mt-1 shrink-0 mr-2" />
                   <span>Application tracking and deadline management</span>
                 </li>
               </ul>

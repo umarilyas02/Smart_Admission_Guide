@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
+import HeroIllustration from "@/components/HeroIllustration";
 
-export default function HeroSection({ title, subtitle, primaryCta, secondaryCta, imageSrc }) {
+export default function HeroSection({ title, subtitle, primaryCta, secondaryCta }) {
   return (
-    <section className="bg-white py-20">
+    <section className="bg-white py-20 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-10 items-center">
         <div className="fade-in">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
@@ -34,18 +34,11 @@ export default function HeroSection({ title, subtitle, primaryCta, secondaryCta,
           </div>
         </div>
 
-        {imageSrc && (
-          <div className="hidden md:block relative w-full h-96">
-            <Image 
-              src={imageSrc} 
-              alt="Hero" 
-              fill
-              quality={100}
-              priority
-              className="object-cover rounded-lg"
-            />
+        <div className="hidden md:flex items-center justify-center relative">
+          <div className="w-full max-w-lg">
+            <HeroIllustration />
           </div>
-        )}
+        </div>
       </div>
     </section>
   );

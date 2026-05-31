@@ -12,11 +12,14 @@
     "db:migrate": "node scripts/apply-schema.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "google-auth-library": "^10.5.0",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.17.0",
     "next": "16.1.1",
+    "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.12",
     "pg": "^8.11.5",

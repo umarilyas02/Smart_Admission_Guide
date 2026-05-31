@@ -1,14 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { MessageSquare, XCircle, RefreshCw, Sparkles } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+
+function formatDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-PK", {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
 
 export default function ChatbotQueries() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [queries, setQueries] = useState([]);
-  const [filter, setFilter] = useState("all"); // all, relevant, irrelevant
+  const [logs, setLogs] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [error, setError] = useState(null);
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url =
+        filter === "all"
+          ? "/api/chatbot/logs"
+          : `/api/chatbot/logs?filter=${filter}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setLogs(data.logs || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -16,170 +45,151 @@ export default function ChatbotQueries() {
       router.push("/auth?mode=login");
       return;
     }
+    fetchLogs();
+  }, [router, fetchLogs]);
 
-    // Simulate fetching chatbot queries
-    setTimeout(() => {
-      setQueries([
-        {
-          id: 1,
-          query: "What is the FAST admission merit?",
-          type: "relevant",
-          timestamp: "2026-01-27 10:30 AM",
-          response: "The merit varies by program, typically 80-85%.",
-        },
-        {
-          id: 2,
-          query: "Tell me a joke",
-          type: "irrelevant",
-          timestamp: "2026-01-27 10:15 AM",
-          response: "I'm here to help with admission guidance.",
-        },
-        {
-          id: 3,
-          query: "Which universities offer CS programs?",
-          type: "relevant",
-          timestamp: "2026-01-27 09:45 AM",
-          response: "FAST, NUST, COMSATS, and many others offer CS programs.",
-        },
-        {
-          id: 4,
-          query: "What is 2+2?",
-          type: "irrelevant",
-          timestamp: "2026-01-27 09:30 AM",
-          response: "Please ask admission-related questions.",
-        },
-        {
-          id: 5,
-          query: "NUST entry test preparation tips?",
-          type: "relevant",
-          timestamp: "2026-01-27 09:00 AM",
-          response:
-            "Focus on Math, Physics, and practice past papers. Aim for speed and accuracy.",
-        },
-      ]);
-      setLoading(false);
-    }, 500);
-  }, [router]);
-
-  const filteredQueries = queries.filter((q) => {
-    if (filter === "all") return true;
-    return q.type === filter;
-  });
-
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </AdminLayout>
-    );
-  }
+  const total = logs.length;
+  const relevant = logs.filter((l) => l.relevant === true).length;
+  const irrelevant = logs.filter((l) => l.relevant === false).length;
 
   return (
     <AdminLayout>
       <div className="p-8">
-        <h1 className="text-2xl font-bold text-blue-600 mb-6">
-          Chatbot Queries Log
-        </h1>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">SAG AI — Query Logs</h1>
+              <p className="text-sm text-gray-500">All chatbot conversations tracked in real time</p>
+            </div>
+          </div>
+          <button
+            onClick={fetchLogs}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition text-sm disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-gray-600 text-sm">Total Queries</p>
-            <p className="text-2xl font-bold text-blue-600">{queries.length}</p>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+            <p className="text-gray-500 text-sm mb-1">Total Queries</p>
+            <p className="text-3xl font-bold text-gray-800">{total}</p>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-gray-600 text-sm">Relevant</p>
-            <p className="text-2xl font-bold text-green-600">
-              {queries.filter((q) => q.type === "relevant").length}
-            </p>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-green-100">
+            <p className="text-gray-500 text-sm mb-1">Admission-Related</p>
+            <p className="text-3xl font-bold text-green-600">{relevant}</p>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-gray-600 text-sm">Irrelevant</p>
-            <p className="text-2xl font-bold text-red-600">
-              {queries.filter((q) => q.type === "irrelevant").length}
-            </p>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-red-100">
+            <p className="text-gray-500 text-sm mb-1">Off-Topic</p>
+            <p className="text-3xl font-bold text-red-500">{irrelevant}</p>
           </div>
         </div>
 
-        {/* Filter Buttons */}
+        {/* Filter */}
         <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setFilter("all")}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === "all"
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            All Queries
-          </button>
-          <button
-            onClick={() => setFilter("relevant")}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === "relevant"
-                ? "bg-green-600 text-white"
-                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            Relevant
-          </button>
-          <button
-            onClick={() => setFilter("irrelevant")}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === "irrelevant"
-                ? "bg-red-600 text-white"
-                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            Irrelevant
-          </button>
+          {[["all", "All Queries"], ["relevant", "Admission-Related"], ["irrelevant", "Off-Topic"]].map(
+            ([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setFilter(val)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  filter === val
+                    ? val === "relevant"
+                      ? "bg-green-600 text-white"
+                      : val === "irrelevant"
+                      ? "bg-red-500 text-white"
+                      : "bg-linear-to-r from-purple-600 to-indigo-600 text-white"
+                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            )
+          )}
         </div>
 
-        {/* Queries List */}
-        <div className="space-y-4">
-          {filteredQueries.map((query) => (
-            <div
-              key={query.id}
-              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transform transition duration-300"
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div className="grow">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">
-                      {query.type === "relevant" ? "❓" : "❌"}
-                    </span>
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {query.query}
-                    </h3>
-                  </div>
-                  <p className="text-sm text-gray-500 mb-2">
-                    {query.timestamp}
-                  </p>
-                  <div className="bg-gray-50 p-3 rounded-lg mt-3">
-                    <p className="text-sm text-gray-700">
-                      <strong>Response:</strong> {query.response}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    query.type === "relevant"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {query.type}
-                </span>
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-xl p-5 animate-pulse border border-gray-100">
+                <div className="h-4 bg-gray-200 rounded w-2/3 mb-3" />
+                <div className="h-3 bg-gray-100 rounded w-1/3 mb-3" />
+                <div className="h-3 bg-gray-100 rounded w-full" />
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {filteredQueries.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No queries found for this filter.
+        {/* Logs list */}
+        {!loading && !error && (
+          <div className="space-y-3">
+            {logs.map((log) => (
+              <div
+                key={log.id}
+                className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className={`mt-0.5 shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                      log.relevant ? "bg-green-50" : "bg-red-50"
+                    }`}>
+                      {log.relevant
+                        ? <MessageSquare className="w-4 h-4 text-green-600" />
+                        : <XCircle className="w-4 h-4 text-red-500" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">{log.query}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {formatDate(log.created_at)}
+                        {log.user_name && (
+                          <span className="ml-2 text-indigo-400">· {log.user_name}</span>
+                        )}
+                      </p>
+                      {log.response && (
+                        <div className="mt-3 bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                          <p className="text-sm text-gray-600 line-clamp-3">
+                            <span className="font-medium text-gray-700">SAG AI: </span>
+                            {log.response}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${
+                      log.relevant
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-600"
+                    }`}
+                  >
+                    {log.relevant ? "Relevant" : "Off-topic"}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {logs.length === 0 && (
+              <div className="text-center py-16 text-gray-400">
+                <Sparkles className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No queries yet</p>
+                <p className="text-sm mt-1">SAG AI conversations will appear here.</p>
+              </div>
+            )}
           </div>
         )}
       </div>

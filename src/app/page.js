@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Target, BarChart2, Bot } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -47,7 +48,6 @@ export default function HomePage() {
             label: "Check Admission Chance",
             href: "/admission-chance",
           }}
-          imageSrc="/images/hero.jpg"
         />
 
         {/* How It Works Section */}
@@ -86,8 +86,8 @@ export default function HomePage() {
 
             <div className="mt-12 grid md:grid-cols-3 gap-8">
               <div className="p-6 border rounded-xl hover:shadow-lg transition">
-                <h3 className="text-xl font-semibold text-primary">
-                  🎯 Smart Recommendations
+                <h3 className="text-xl font-semibold text-primary flex items-center justify-center gap-2">
+                  <Target className="w-5 h-5" /> Smart Recommendations
                 </h3>
                 <p className="mt-3 text-gray-600">
                   Get university and program suggestions based on your marks.
@@ -95,8 +95,8 @@ export default function HomePage() {
               </div>
 
               <div className="p-6 border rounded-xl hover:shadow-lg transition">
-                <h3 className="text-xl font-semibold text-primary">
-                  📊 Admission Chance Calculator
+                <h3 className="text-xl font-semibold text-primary flex items-center justify-center gap-2">
+                  <BarChart2 className="w-5 h-5" /> Admission Chance Calculator
                 </h3>
                 <p className="mt-3 text-gray-600">
                   Predict your admission probability using AI.
@@ -104,8 +104,8 @@ export default function HomePage() {
               </div>
 
               <div className="p-6 border rounded-xl hover:shadow-lg transition">
-                <h3 className="text-xl font-semibold text-primary">
-                  🤖 AI Chatbot
+                <h3 className="text-xl font-semibold text-primary flex items-center justify-center gap-2">
+                  <Bot className="w-5 h-5" /> AI Chatbot
                 </h3>
                 <p className="mt-3 text-gray-600">
                   Ask admission-related questions anytime.
