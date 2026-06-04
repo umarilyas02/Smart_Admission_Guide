@@ -6,6 +6,20 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import ChatbotWidget from "./ChatbotWidget";
 
+const ADMIN_EMAIL = "smartadmissionguide@gmail.com";
+
+function decodeToken(token) {
+  try {
+    const base64Url = token.split(".")[1];
+    // JWT uses base64url (- and _ instead of + and /), atob needs standard base64
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminLayout({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -16,8 +30,12 @@ export default function AdminLayout({ children }) {
       router.push("/auth?mode=login");
       return;
     }
-    // In production, verify token and check admin role via API
-    setTimeout(() => setLoading(false), 0);
+    const decoded = decodeToken(token);
+    if (!decoded || decoded.email !== ADMIN_EMAIL) {
+      router.push("/");
+      return;
+    }
+    setLoading(false);
   }, [router]);
 
   if (loading) {

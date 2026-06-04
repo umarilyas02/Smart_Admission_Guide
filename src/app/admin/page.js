@@ -1,8 +1,87 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
+import { runScrape } from "@/app/actions/scrape";
+
+function ScrapeSection() {
+  const [isPending, startTransition] = useTransition();
+  const [result, setResult] = useState(null);
+
+  function handleScrape() {
+    setResult(null);
+    startTransition(async () => {
+      try {
+        const data = await runScrape();
+        setResult(data);
+      } catch (err) {
+        setResult({ success: false, output: "", error: err.message });
+      }
+    });
+  }
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-xl font-semibold text-gray-800 mb-4">
+        Data Scraping
+      </h2>
+      <div className="bg-white p-6 rounded-xl shadow-lg">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <p className="text-gray-600 text-sm mb-1">
+              Fetches raw data from the Cloudflare Worker, runs the Python
+              cleaning script, and syncs results to the database.
+            </p>
+            <p className="text-gray-400 text-xs">
+              Existing data will be replaced on each run.
+            </p>
+          </div>
+          <button
+            onClick={handleScrape}
+            disabled={isPending}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-white transition ${
+              isPending
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {isPending ? (
+              <>
+                <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Running...
+              </>
+            ) : (
+              "Scrape & Sync Data"
+            )}
+          </button>
+        </div>
+
+        {result && result.success && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-700 font-medium text-sm mb-2">
+              ✓ Sync complete
+            </p>
+            {result.output && (
+              <pre className="text-green-700 text-xs whitespace-pre-wrap max-h-40 overflow-y-auto">
+                {result.output}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {result && !result.success && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700 font-medium text-sm mb-1">✗ Failed</p>
+            <pre className="text-red-600 text-xs whitespace-pre-wrap">
+              {result.error || result.output}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -16,16 +95,19 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Simulate fetching admin stats
-    setTimeout(() => {
-      setStats({
-        students: 1250,
-        universities: 65,
-        programs: 320,
-        chatbotQueries: 89,
-      });
-      setLoading(false);
-    }, 500);
+    fetch("/api/admin/stats", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) {
+          router.push("/");
+          return;
+        }
+        setStats(data);
+        setLoading(false);
+      })
+      .catch(() => router.push("/"));
   }, [router]);
 
   if (loading || !stats) {
@@ -69,7 +151,7 @@ export default function AdminDashboard() {
               Universities
             </h3>
             <p className="text-3xl font-bold text-green-600">
-              {stats.universities}
+              {stats.universities.toLocaleString()}
             </p>
             <div className="mt-4">
               <a
@@ -86,7 +168,7 @@ export default function AdminDashboard() {
               Programs
             </h3>
             <p className="text-3xl font-bold text-purple-600">
-              {stats.programs}
+              {stats.programs.toLocaleString()}
             </p>
             <div className="mt-4">
               <a
@@ -103,7 +185,7 @@ export default function AdminDashboard() {
               Chatbot Queries
             </h3>
             <p className="text-3xl font-bold text-orange-600">
-              {stats.chatbotQueries}
+              {stats.chatbotQueries.toLocaleString()}
             </p>
             <div className="mt-4">
               <a
@@ -116,32 +198,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Quick Actions
-          </h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            <a
-              href="/admin/universities"
-              className="bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition text-center"
-            >
-              + Add University
-            </a>
-            <a
-              href="/admin/programs"
-              className="bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 transition text-center"
-            >
-              + Add Program
-            </a>
-            <a
-              href="/admin/entry-tests"
-              className="bg-purple-600 text-white p-4 rounded-lg hover:bg-purple-700 transition text-center"
-            >
-              Manage Entry Tests
-            </a>
-          </div>
-        </div>
+        <ScrapeSection />
       </div>
     </AdminLayout>
   );
