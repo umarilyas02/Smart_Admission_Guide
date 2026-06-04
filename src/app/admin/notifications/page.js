@@ -22,69 +22,73 @@ export default function AdminNotifications() {
       return;
     }
 
-    // Simulate fetching notifications
-    setTimeout(() => {
-      setNotifications([
-        {
-          id: 1,
-          title: "System Maintenance",
-          message: "Server maintenance scheduled for tonight.",
-          type: "info",
-          timestamp: "2026-01-27 08:00 AM",
-          status: "sent",
-        },
-        {
-          id: 2,
-          title: "New Feature Released",
-          message: "AI-powered university recommendations now available.",
-          type: "success",
-          timestamp: "2026-01-26 10:00 AM",
-          status: "sent",
-        },
-        {
-          id: 3,
-          title: "Deadline Alert",
-          message: "University application deadlines approaching.",
-          type: "warning",
-          timestamp: "2026-01-25 09:00 AM",
-          status: "sent",
-        },
-      ]);
-      setLoading(false);
-    }, 500);
+    fetch("/api/admin/notifications", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) { router.push("/"); return; }
+        setNotifications(
+          (data.notifications || []).map((n) => ({
+            ...n,
+            timestamp: new Date(n.created_at).toLocaleString("en-US", {
+              year: "numeric", month: "short", day: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            }),
+            status: "sent",
+          }))
+        );
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [router]);
 
-  const handleCreateNotification = () => {
+  const handleCreateNotification = async () => {
     if (!newNotification.title || !newNotification.message) {
       alert("Please fill in all fields");
       return;
     }
 
-    const newId = Math.max(...notifications.map((n) => n.id), 0) + 1;
-    const timestamp = new Date().toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    setNotifications([
-      {
-        id: newId,
-        ...newNotification,
-        timestamp,
-        status: "sent",
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch("/api/admin/notifications", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
-      ...notifications,
-    ]);
+      body: JSON.stringify(newNotification),
+    });
+    if (res.ok) {
+      const data = await fetch("/api/admin/notifications", {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((r) => r.json());
+      setNotifications(
+        (data.notifications || []).map((n) => ({
+          ...n,
+          timestamp: new Date(n.created_at).toLocaleString("en-US", {
+            year: "numeric", month: "short", day: "numeric",
+            hour: "2-digit", minute: "2-digit",
+          }),
+          status: "sent",
+        }))
+      );
+    }
 
     setNewNotification({ title: "", message: "", type: "info" });
     setShowCreateModal(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm("Are you sure you want to delete this notification?")) {
+      const token = localStorage.getItem("auth_token");
+      await fetch("/api/admin/notifications", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id }),
+      });
       setNotifications(notifications.filter((n) => n.id !== id));
     }
   };

@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Test Cases — Smart Admission Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:    #2563EB;
+    --green:   #16A34A;
+    --red:     #DC2626;
+    --gray:    #6B7280;
+    --bg:      #F8FAFC;
+    --surface: #FFFFFF;
+    --border:  #E5E7EB;
+    --text:    #111827;
+    --muted:   #6B7280;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: linear-gradient(135deg, #1E40AF 0%, #2563EB 100%);
+    color: #fff;
+    padding: 28px 40px 24px;
+  }
+  .topbar h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  .topbar p  { font-size: 12px; opacity: .75; margin-top: 4px; }
+  .topbar-meta { font-size: 11px; opacity: .6; margin-top: 6px; }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 20px 40px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-card {
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+    border: 1px solid;
+  }
+  .stat-card.total   { background: #EFF6FF; border-color: #BFDBFE; }
+  .stat-card.pass    { background: #F0FDF4; border-color: #BBF7D0; }
+  .stat-card.fail    { background: #FEF2F2; border-color: #FECACA; }
+  .stat-card.pct     { background: #F5F3FF; border-color: #DDD6FE; }
+  .stat-num { font-size: 28px; font-weight: 700; }
+  .stat-card.total .stat-num { color: var(--blue); }
+  .stat-card.pass  .stat-num { color: var(--green); }
+  .stat-card.fail  .stat-num { color: var(--red); }
+  .stat-card.pct   .stat-num { color: #7C3AED; }
+  .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: 2px; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    padding: 14px 40px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .progress-bar { flex: 1; height: 8px; background: #F3F4F6; border-radius: 99px; overflow: hidden; display: flex; }
+  .pb-pass { background: var(--green); height: 100%; transition: width .4s; }
+  .pb-fail { background: var(--red);   height: 100%; transition: width .4s; }
+  .progress-legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+  /* ── CONTROLS ── */
+  .controls {
+    padding: 14px 40px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .search-box {
+    flex: 1; min-width: 180px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+  .search-box:focus { border-color: var(--blue); box-shadow: 0 0 0 2px #BFDBFE; }
+  .filter-select {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .filter-select:focus { border-color: var(--blue); }
+  .btn-print {
+    padding: 7px 16px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .btn-print:hover { background: #1D4ED8; }
+  .btn-expand-all {
+    padding: 7px 16px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .btn-expand-all:hover { background: #F3F4F6; }
+
+  /* ── MAIN CONTENT ── */
+  .content { padding: 24px 40px 60px; }
+
+  /* ── MODULE GROUP ── */
+  .module-group { margin-bottom: 10px; }
+  .module-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--muted);
+    padding: 8px 0 4px;
+  }
+
+  /* ── TEST CARD ── */
+  .tc-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    transition: border-color .15s;
+  }
+  .tc-card.pass { border-color: #BBF7D0; }
+  .tc-card.fail { border-color: #FECACA; }
+
+  .tc-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background .1s;
+  }
+  .tc-header:hover { background: #FAFAFA; }
+
+  .status-icon { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .status-icon.pass { background: #DCFCE7; }
+  .status-icon.fail { background: #FEE2E2; }
+  .status-icon svg  { width: 12px; height: 12px; }
+
+  .tc-meta { flex: 1; min-width: 0; }
+  .tc-meta-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+  .tc-id   { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+  .tc-table-ref { font-size: 10px; color: #9CA3AF; }
+
+  .badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 99px; border: 1px solid;
+  }
+  .badge.pass  { background: #F0FDF4; color: #15803D; border-color: #BBF7D0; }
+  .badge.fail  { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+  .badge.high  { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
+  .badge.medium{ background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+
+  .tc-title { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tc-module { font-size: 11px; color: var(--muted); }
+
+  .chevron { flex-shrink: 0; transition: transform .2s; color: var(--muted); }
+  .chevron.open { transform: rotate(180deg); }
+
+  /* ── EXPANDED BODY ── */
+  .tc-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 16px;
+  }
+  .tc-body.open { display: block; }
+
+  .tc-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .tc-info-grid .label { font-weight: 600; color: #374151; }
+  .tc-info-grid .val   { color: var(--muted); }
+  .tc-info-grid .full  { grid-column: 1 / -1; }
+
+  /* ── STEPS TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  thead tr { background: #F9FAFB; }
+  thead th {
+    text-align: left;
+    padding: 8px 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: .5px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid #F3F4F6; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #FAFAFA; }
+  td { padding: 8px 10px; vertical-align: top; color: #374151; }
+  td.step-num { color: var(--muted); font-weight: 500; font-size: 11px; width: 30px; }
+  td.data-cell { color: var(--muted); font-style: italic; }
+
+  .step-status {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 99px; border: 1px solid;
+    font-size: 10px; font-weight: 600;
+  }
+  .step-status.pass { background: #F0FDF4; color: #15803D; border-color: #BBF7D0; }
+  .step-status.fail { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+  .step-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .pass .step-dot { background: #16A34A; }
+  .fail .step-dot { background: #DC2626; }
+
+  td.actual { font-size: 11px; color: #4B5563; }
+  td.notes-cell { font-size: 11px; color: #9CA3AF; font-style: italic; }
+
+  .post-condition {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #F9FAFB;
+    border-left: 3px solid #D1D5DB;
+    border-radius: 0 6px 6px 0;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .post-condition strong { color: var(--text); }
+
+  /* ── NO RESULTS ── */
+  .no-results { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+
+  /* ── PRINT ── */
+  @media print {
+    .controls, .btn-print, .topbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .controls { position: static; }
+    .tc-body   { display: block !important; }
+    .chevron   { display: none; }
+    body       { font-size: 11px; }
+  }
+
+  @media (max-width: 640px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .content, .controls, .stats-row, .progress-wrap, .topbar { padding-left: 16px; padding-right: 16px; }
+    .tc-info-grid { grid-template-columns: 1fr; }
+    .tc-info-grid .full { grid-column: 1; }
+    .col-data, .col-actual { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>Smart Admission Guide — Test Case Report</h1>
+  <p>Section 7.1 — Extended Test Cases &nbsp;·&nbsp; Statuses based on codebase analysis</p>
+  <div class="topbar-meta">Designed by Neelam Shehzadi &nbsp;·&nbsp; Design Date: 05/01/2026 &nbsp;·&nbsp; Executed Date: 04/06/2026</div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+  <div class="stat-card total"><div class="stat-num">43</div><div class="stat-label">Total Cases</div></div>
+  <div class="stat-card pass" ><div class="stat-num" id="count-pass">21</div><div class="stat-label">Pass</div></div>
+  <div class="stat-card fail" ><div class="stat-num" id="count-fail">22</div><div class="stat-label">Fail</div></div>
+  <div class="stat-card pct"  ><div class="stat-num">49%</div><div class="stat-label">Pass Rate</div></div>
+</div>
+
+<!-- PROGRESS BAR -->
+<div class="progress-wrap">
+  <div class="progress-bar">
+    <div class="pb-pass" style="width:48.8%"></div>
+    <div class="pb-fail" style="width:51.2%"></div>
+  </div>
+  <div class="progress-legend">
+    <span><span class="legend-dot" style="background:#16A34A"></span>Pass (21)</span>
+    <span><span class="legend-dot" style="background:#DC2626"></span>Fail (22)</span>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <input  type="text"   class="search-box"   id="searchBox"    placeholder="Search by ID, title or module…" oninput="filterCases()" />
+  <select class="filter-select" id="moduleFilter" onchange="filterCases()">
+    <option value="all">All Modules</option>
+    <option value="User Registration">User Registration</option>
+    <option value="User Login">User Login</option>
+    <option value="Edit Profile">Edit Profile</option>
+    <option value="Adaptive Quiz">Adaptive Quiz</option>
+    <option value="View Career Recommendations">Career Recommendations</option>
+    <option value="Upload Academic Documents">Upload Academic Documents</option>
+    <option value="Generate Application Documents">Generate App. Documents</option>
+    <option value="Check Admission Probability">Admission Probability</option>
+    <option value="Receive Dashboard Alerts">Dashboard Alerts</option>
+    <option value="Use AI-Powered Chatbot">AI-Powered Chatbot</option>
+    <option value="Admin - Manage Users">Admin</option>
+    <option value="Website Functionality">Website</option>
+  </select>
+  <select class="filter-select" id="statusFilter" onchange="filterCases()">
+    <option value="all">All Statuses</option>
+    <option value="pass">Pass Only</option>
+    <option value="fail">Fail Only</option>
+  </select>
+  <button class="btn-expand-all" onclick="toggleAll()">Expand All</button>
+  <button class="btn-print" onclick="window.print()">Print / Export PDF</button>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="content">
+
+<!-- ════════════════════════════════
+     HELPER: cards injected by JS
+════════════════════════════════ -->
+
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+const TC = [
+  {
+    id:"UC-1-TC-01", tableNum:25, num:1,
+    module:"User Registration", title:"Successful User Registration", priority:"High", status:"pass",
+    desc:"Verify that the student can register by providing valid email, password, and contact details.",
+    pre:"The student has internet access and is on the sign-up page.",
+    post:"A new student profile is created and stored securely.",
+    steps:[
+      {n:1, step:"Access the sign-up page",        data:"",                         expected:"Sign-up page loads successfully",                               actual:"Page loads correctly",               status:"pass", notes:""},
+      {n:2, step:"Enter valid email, password, contact info", data:"Name, Phone, Email", expected:"System accepts data and moves to next step",              actual:"Data accepted, form validated",      status:"pass", notes:""},
+      {n:3, step:'Click "Submit"',                  data:"",                         expected:"System validates the data",                                    actual:"API POST /api/auth/signup called",    status:"pass", notes:""},
+      {n:4, step:"System sends confirmation email", data:"",                         expected:"Confirmation email sent to provided address",                   actual:"sendWelcomeEmail() invoked",         status:"pass", notes:""},
+      {n:5, step:"Check database",                  data:"",                         expected:"Student profile stored securely",                               actual:"User row inserted via DB query",     status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-1-TC-02", tableNum:26, num:2,
+    module:"User Registration", title:"Invalid Email Format", priority:"Medium", status:"fail",
+    desc:"Verify that the system prompts the student to enter a valid email when an invalid format is provided.",
+    pre:"The student is on the sign-up page.",
+    post:"User successfully registered.",
+    steps:[
+      {n:1, step:"Access the sign-up page",    data:"",               expected:"Sign-up page loads successfully",                        actual:"Page loads correctly",               status:"pass", notes:""},
+      {n:2, step:"Enter invalid email format", data:"Name, Phone, Email", expected:"System prompts to enter a valid email",              actual:"No format validation — field only checked for presence", status:"fail", notes:"No regex or format check in signup route.js"},
+      {n:3, step:'Click "Submit"',             data:"",               expected:'"Please enter a valid email" error appears',             actual:"Invalid email accepted by backend",   status:"fail", notes:"Backend accepts any non-empty email string"},
+    ]
+  },
+  {
+    id:"UC-1-TC-03", tableNum:27, num:3,
+    module:"User Registration", title:"Weak Password", priority:"Medium", status:"fail",
+    desc:"Verify that the system prompts the student to create a stronger password.",
+    pre:"The student is on the sign-up page.",
+    post:"User successfully registered.",
+    steps:[
+      {n:1, step:"Access the sign-up page", data:"",               expected:"Sign-up page loads successfully",                              actual:"Page loads correctly",              status:"pass", notes:""},
+      {n:2, step:"Enter weak password",     data:"Name, Phone, Email", expected:"System prompts to create a stronger password",            actual:"Only min-length (6 chars) checked — no complexity rules", status:"fail", notes:"No strength scoring, no complexity requirements"},
+      {n:3, step:'Click "Submit"',          data:"",               expected:'"Password is too weak. Please choose a stronger password"',   actual:"Weak passwords like '123456' accepted", status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-1-TC-04", tableNum:28, num:4,
+    module:"User Registration", title:"Duplicate Account", priority:"Medium", status:"pass",
+    desc:"Verify that the system prevents registration if the email is already registered.",
+    pre:"The student is on the sign-up page, and the email is already registered.",
+    post:"User successfully registered.",
+    steps:[
+      {n:1, step:"Access the sign-up page",           data:"",               expected:"Sign-up page loads successfully",                     actual:"Page loads correctly",                    status:"pass", notes:""},
+      {n:2, step:"Enter already registered email",    data:"Name, Phone, Email", expected:"System alerts that email is already in use",      actual:"DB unique constraint triggers 409 response", status:"pass", notes:""},
+      {n:3, step:'Click "Submit"',                    data:"",               expected:'"This email is already registered" appears',           actual:"'Email already registered' error returned", status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-1-TC-05", tableNum:29, num:5,
+    module:"User Registration", title:"Missing Required Field", priority:"Medium", status:"pass",
+    desc:"Verify that the system prompts the student to fill in all required fields if any field is left empty.",
+    pre:"The student is on the sign-up page.",
+    post:"User successfully registered.",
+    steps:[
+      {n:1, step:"Access the sign-up page",       data:"",                    expected:"Sign-up page loads successfully",                   actual:"Page loads correctly",                  status:"pass", notes:""},
+      {n:2, step:"Leave a required field empty",  data:"Name and email only", expected:"System alerts to fill in all required fields",      actual:"Missing fields detected server-side",    status:"pass", notes:"name, email, password, confirmPassword all checked"},
+      {n:3, step:'Click "Submit"',                data:"",                    expected:'"Please fill in all required fields" appears',       actual:"400 error with missing field message",   status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-2-TC-01", tableNum:30, num:6,
+    module:"User Login", title:"Successful User Login", priority:"High", status:"pass",
+    desc:"Test if the student can successfully log in using valid credentials.",
+    pre:"Students have a registered account and know their login credentials.",
+    post:"The student successfully logs in and gains access to their account.",
+    steps:[
+      {n:1, step:"Access the login page",              data:"",                    expected:"Login page loads successfully",                     actual:"Login page renders correctly",          status:"pass", notes:""},
+      {n:2, step:"Enter valid email and password",     data:"Email, Password",     expected:"Credentials validated and access granted",          actual:"bcrypt compare passes, JWT issued",      status:"pass", notes:""},
+      {n:3, step:'Click "Login"',                      data:"",                    expected:"Student directed to profile/dashboard page",         actual:"Token stored, redirect to /dashboard",   status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-2-TC-02", tableNum:31, num:7,
+    module:"User Login", title:"Invalid Credentials", priority:"Medium", status:"pass",
+    desc:"Test if the system prompts re-entry when password is incorrect.",
+    pre:"Student has a registered account.",
+    post:"User successfully login.",
+    steps:[
+      {n:1, step:"Access the login page",                      data:"",                 expected:"Login page loads successfully",                 actual:"Login page renders correctly",            status:"pass", notes:""},
+      {n:2, step:"Enter valid email and incorrect password",   data:"Email, Password",  expected:"System prompts to re-enter credentials",        actual:"bcrypt compare fails, 401 returned",       status:"pass", notes:""},
+      {n:3, step:'Click "Login"',                              data:"",                 expected:'"Invalid password, please try again" appears',  actual:'"Invalid email or password" shown',        status:"pass", notes:"Message is slightly generic for security — acceptable"},
+    ]
+  },
+  {
+    id:"UC-2-TC-03", tableNum:32, num:8,
+    module:"User Login", title:"Password Recovery", priority:"Medium", status:"pass",
+    desc:"Test if the system allows the student to reset their password.",
+    pre:"Student has been locked out due to failed login attempts.",
+    post:"The student successfully resets password and logs in.",
+    steps:[
+      {n:1, step:"Access the login page",                  data:"",                      expected:"Login page loads successfully",                    actual:"Page loads correctly",                   status:"pass", notes:""},
+      {n:2, step:'Click "Forget Password"',                data:"",                      expected:"System prompts to enter registered email",         actual:"/auth/forgot-password page shown",        status:"pass", notes:""},
+      {n:3, step:"Enter registered email",                 data:"Email",                 expected:"System sends password recovery link to email",     actual:"6-digit OTP sent, 10-min expiry set",    status:"pass", notes:"OTP-based, not link-based — meets intent"},
+      {n:4, step:"Click recovery link and reset password", data:"Password, Email",       expected:"Student can set new password and login",           actual:"OTP validated, password hashed and saved", status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-3-TC-01", tableNum:33, num:9,
+    module:"Edit Profile", title:"Successful Profile Update", priority:"High", status:"pass",
+    desc:"Verify that the student can successfully update their profile.",
+    pre:"The student is logged in and is on the profile edit page.",
+    post:"The student's profile is successfully updated.",
+    steps:[
+      {n:1, step:"Access the edit page",                        data:"",                expected:"Profile edit page loads successfully",              actual:"Page loads with existing data",          status:"pass", notes:""},
+      {n:2, step:"Enter valid personal and academic details",   data:"Profile data",    expected:"System accepts and validates details",              actual:"PUT /api/profile accepts data",           status:"pass", notes:""},
+      {n:3, step:'Click "Save"',                                data:"",                expected:"Profile saved and changes confirmed",               actual:"Upsert query executes, 200 returned",     status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-3-TC-02", tableNum:34, num:10,
+    module:"Edit Profile", title:"Invalid Data Format", priority:"Medium", status:"fail",
+    desc:"Verify that the system prompts when data format is incorrect.",
+    pre:"The student is logged in and is on the profile edit page.",
+    post:"The student's profile is successfully updated.",
+    steps:[
+      {n:1, step:"Access the edit page",          data:"",             expected:"Profile edit page loads successfully",              actual:"Page loads correctly",                    status:"pass", notes:""},
+      {n:2, step:"Enter invalid data format",     data:"Data",         expected:"System prompts to enter valid data",                actual:"No field-level format validation present", status:"fail", notes:"No regex/range check on marks, phone format, etc."},
+      {n:3, step:'Click "Save"',                  data:"",             expected:'"Please enter valid details" appears',              actual:"Invalid values saved without error",       status:"fail", notes:"e.g. marks > 100 or negative values accepted"},
+    ]
+  },
+  {
+    id:"UC-3-TC-03", tableNum:35, num:11,
+    module:"Edit Profile", title:"Failed Profile Update", priority:"Medium", status:"fail",
+    desc:"Verify the system notifies the student if the profile update fails due to a system error.",
+    pre:"The student is logged in and is on the profile edit page.",
+    post:"The student's profile is successfully updated.",
+    steps:[
+      {n:1, step:"Access the edit page",              data:"",             expected:"Profile edit page loads successfully",                  actual:"Page loads correctly",                   status:"pass", notes:""},
+      {n:2, step:"Enter valid data",                  data:"Data",         expected:"System accepts updated details",                        actual:"Data accepted client-side",               status:"pass", notes:""},
+      {n:3, step:"Simulate system failure during save", data:"",           expected:"System notifies student of failure, prompts retry",     actual:"Generic 500 error; no user-facing retry prompt", status:"fail", notes:"No specific 'Profile update failed' message defined"},
+      {n:4, step:'Click "Save"',                      data:"",             expected:'"Profile update failed. Please try again" appears',     actual:"No custom error message for this scenario", status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-4-TC-01", tableNum:36, num:12,
+    module:"Adaptive Quiz", title:"Successful Quiz Completion", priority:"High", status:"pass",
+    desc:"Verify that the student can complete the adaptive quiz and receive personalized recommendations.",
+    pre:"The student is logged in and ready to take the quiz.",
+    post:"The student receives personalized career and university suggestions.",
+    steps:[
+      {n:1, step:"Access the quiz page",           data:"",                              expected:"Quiz page loads successfully",                    actual:"Quiz page renders with intro",           status:"pass", notes:""},
+      {n:2, step:"Start answering quiz questions", data:"",                              expected:"System adjusts following questions based on answers", actual:"Questions presented in sequence",        status:"pass", notes:""},
+      {n:3, step:"Complete the quiz",              data:"Random answers",                expected:"Career and university suggestions shown",         actual:"Claude AI generates recommendations",    status:"pass", notes:""},
+      {n:4, step:"View recommendations",           data:"",                              expected:"Personalized recommendations displayed",           actual:"Department, careers, confidence shown",  status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-4-TC-02", tableNum:37, num:13,
+    module:"Adaptive Quiz", title:"Incorrect Answers Handling", priority:"Medium", status:"pass",
+    desc:"Ensure the system handles incorrect answers and still provides appropriate suggestions.",
+    pre:"The student is logged in and ready to take the quiz.",
+    post:"The student receives personalized career and university suggestions.",
+    steps:[
+      {n:1, step:"Access the quiz page",               data:"",                expected:"Quiz page loads successfully",                    actual:"Page loads correctly",                   status:"pass", notes:""},
+      {n:2, step:"Answer some questions incorrectly",  data:"Wrong answers",   expected:"System gives recommendations on these answers",   actual:"Claude AI processes all answers",         status:"pass", notes:"AI treats all answers as valid preference signals"},
+      {n:3, step:"Finish the quiz",                    data:"",                expected:"System generates suggestions regardless",          actual:"Recommendations always generated",        status:"pass", notes:"No concept of 'wrong' in preference-based quiz"},
+    ]
+  },
+  {
+    id:"UC-4-TC-03a", tableNum:38, num:14,
+    module:"Adaptive Quiz", title:"Incomplete Quiz Submission", priority:"Medium", status:"pass",
+    desc:"Check if the system alerts the student when they try to submit without completing.",
+    pre:"The student is logged in and ready to take the quiz.",
+    post:"The student receives personalized career and university suggestions.",
+    steps:[
+      {n:1, step:"Access the quiz page",                           data:"", expected:"Quiz page loads successfully",                     actual:"Page loads correctly",                    status:"pass", notes:""},
+      {n:2, step:"Leave some questions unanswered",                data:"", expected:"System alerts to complete before submitting",      actual:"'Please answer this question' shown",     status:"pass", notes:""},
+      {n:3, step:"Try to submit without completing",               data:"", expected:'"Please complete the quiz before submitting"',     actual:"Navigation blocked until answer selected", status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-4-TC-03b", tableNum:39, num:15,
+    module:"Adaptive Quiz", title:"Dynamic Question Changes Based on Answers", priority:"Medium", status:"fail",
+    desc:"Ensure the system adjusts questions during the quiz based on student answers.",
+    pre:"The student is logged in and ready to take the quiz.",
+    post:"The student receives personalized career and university suggestions.",
+    steps:[
+      {n:1, step:"Access the quiz page",           data:"", expected:"Quiz page loads successfully",                           actual:"Page loads correctly",                      status:"pass", notes:""},
+      {n:2, step:"Start answering questions",      data:"", expected:"System adjusts next questions based on responses",       actual:"All 10 questions are fixed and hardcoded",   status:"fail", notes:"No branching logic — same questions for all users"},
+      {n:3, step:"Complete the quiz",              data:"", expected:"Personalized suggestions shown after completion",        actual:"Suggestions shown, but not based on adaptive path", status:"fail", notes:"Personalization is at recommendation stage only"},
+    ]
+  },
+  {
+    id:"UC-5-TC-01", tableNum:40, num:16,
+    module:"View Career Recommendations", title:"Displaying Career Suggestions", priority:"High", status:"pass",
+    desc:"Verify that the system shows personalized career recommendations based on quiz responses.",
+    pre:"The student is logged in.",
+    post:"The student will see 3–8 personalized career suggestions.",
+    steps:[
+      {n:1, step:"Complete the quiz",             data:"Student responses", expected:"Student finishes quiz",                               actual:"Quiz completes, payload sent to Claude AI", status:"pass", notes:""},
+      {n:2, step:"View career recommendations",   data:"",                  expected:"System displays relevant career recommendations",      actual:"Department, careers list, confidence % shown", status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-5-TC-02", tableNum:41, num:17,
+    module:"View Career Recommendations", title:"Display Alternative Career Options", priority:"Medium", status:"pass",
+    desc:"Verify that the system suggests alternative careers if no exact match is found.",
+    pre:"The student is logged in.",
+    post:"The student is presented with alternative career options if no perfect match found.",
+    steps:[
+      {n:1, step:"Complete the quiz",                     data:"", expected:"Student finishes quiz",                             actual:"Quiz completes",                              status:"pass", notes:""},
+      {n:2, step:"Process the student data",              data:"", expected:"System analyzes answers and profile",               actual:"Claude AI analyzes all 10 answers",           status:"pass", notes:""},
+      {n:3, step:"Display alternative career suggestions",data:"", expected:"Alternative career options shown if no direct match",actual:"alternativeDepartments array always returned", status:"pass", notes:"3 alternatives always provided in API response"},
+    ]
+  },
+  {
+    id:"UC-5-TC-03", tableNum:42, num:18,
+    module:"View Career Recommendations", title:"Handle Data Processing Error", priority:"Medium", status:"pass",
+    desc:"Check if the system notifies the student when there is an error processing their data.",
+    pre:"The student has completed the quiz, but there is an issue with data processing.",
+    post:"The system informs the student of a processing error and requests retry.",
+    steps:[
+      {n:1, step:"Complete the quiz",       data:"", expected:"Student finishes quiz",                              actual:"Quiz completes",                                   status:"pass", notes:""},
+      {n:2, step:"Process the student data",data:"", expected:"System processes data",                              actual:"API call made to Claude AI",                       status:"pass", notes:""},
+      {n:3, step:"Handle error",            data:"", expected:'"Data processing error. Please try again." shown',   actual:"Error phase renders 'recommendation unavailable'", status:"pass", notes:"Error state with retry button implemented"},
+    ]
+  },
+  {
+    id:"UC-6-TC-01", tableNum:43, num:19,
+    module:"Upload Academic Documents", title:"Successful Document Upload", priority:"High", status:"fail",
+    desc:"Test if the student can upload a document successfully.",
+    pre:"The student is logged in and has a document ready to upload.",
+    post:"The document is successfully uploaded and linked to the student's profile.",
+    steps:[
+      {n:1, step:'Go to "Upload Documents" section', data:"",              expected:"Document upload page opens correctly",             actual:"No upload page exists in the application", status:"fail", notes:"application-pack only has document generation UI"},
+      {n:2, step:"Select a document to upload",       data:"Document file", expected:"Document ready for uploading",                    actual:"No file input field present",              status:"fail", notes:""},
+      {n:3, step:"Upload the document",               data:"",              expected:"Document uploaded and attached to profile",        actual:"No /api/documents/upload endpoint exists", status:"fail", notes:"No backend upload route implemented"},
+    ]
+  },
+  {
+    id:"UC-6-TC-02", tableNum:44, num:20,
+    module:"Upload Academic Documents", title:"Unsupported File Type", priority:"Medium", status:"fail",
+    desc:"Test if the system alerts the student when they try to upload an unsupported file.",
+    pre:"The student is logged in.",
+    post:"The document is successfully uploaded and linked to the student's profile.",
+    steps:[
+      {n:1, step:'Go to "Upload Documents" section', data:"",              expected:"Upload page opens correctly",                   actual:"Feature not implemented",                  status:"fail", notes:""},
+      {n:2, step:"Try to upload unsupported file",   data:"Document file", expected:"Error shown for unsupported file type",         actual:"No file upload functionality at all",       status:"fail", notes:""},
+      {n:3, step:'Click "Upload"',                   data:"",              expected:'"Unsupported file type" error appears',          actual:"N/A — no upload button",                   status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-6-TC-03", tableNum:45, num:21,
+    module:"Upload Academic Documents", title:"File Size Too Large", priority:"Medium", status:"fail",
+    desc:"Test if the system alerts the student when the file size is too large.",
+    pre:"The student is logged in.",
+    post:"The document is successfully uploaded and linked to the student's profile.",
+    steps:[
+      {n:1, step:'Go to "Upload Documents" section', data:"",              expected:"Upload page opens correctly",             actual:"Feature not implemented",                  status:"fail", notes:""},
+      {n:2, step:"Select a large file",              data:"Large file",    expected:"System alerts file is too large",         actual:"No file upload functionality at all",       status:"fail", notes:""},
+      {n:3, step:'Click "Upload"',                   data:"",              expected:'"File size is too large" error appears',  actual:"N/A",                                      status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-6-TC-04", tableNum:46, num:22,
+    module:"Upload Academic Documents", title:"Upload Failure Due to Error", priority:"Medium", status:"fail",
+    desc:"Test if the system displays an error when the upload fails due to a technical issue.",
+    pre:"The student is logged in.",
+    post:"The document is successfully uploaded and linked to the student's profile.",
+    steps:[
+      {n:1, step:'Go to "Upload Documents" section', data:"",              expected:"Upload page opens correctly",                         actual:"Feature not implemented",                  status:"fail", notes:""},
+      {n:2, step:"Select a document to upload",      data:"Document file", expected:"System attempts to upload file",                      actual:"No upload mechanism",                      status:"fail", notes:""},
+      {n:3, step:"Simulate technical issue",         data:"",              expected:'"Upload failed. Please try again." displayed',         actual:"N/A — no backend upload route",            status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-6-TC-05", tableNum:47, num:23,
+    module:"Upload Academic Documents", title:"Upload Multiple Documents", priority:"Medium", status:"fail",
+    desc:"Verify that the student can upload multiple documents at a time.",
+    pre:"The student is logged in and has multiple documents ready.",
+    post:"Multiple documents are uploaded and linked to the student's profile.",
+    steps:[
+      {n:1, step:'Go to "Upload Documents" section', data:"",              expected:"Upload page opens correctly",                   actual:"Feature not implemented",                  status:"fail", notes:""},
+      {n:2, step:"Select multiple documents",        data:"Multiple files", expected:"System allows multi-document upload",           actual:"No file upload functionality",             status:"fail", notes:""},
+      {n:3, step:'Click "Upload"',                   data:"",              expected:"All documents uploaded and linked to profile",  actual:"N/A",                                      status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-7-TC-01", tableNum:48, num:24,
+    module:"Generate Application Documents", title:"Generate Document Successfully", priority:"High", status:"fail",
+    desc:"Verify that the student can generate the application document based on their profile details.",
+    pre:"The student is logged in and has a complete profile.",
+    post:"The document is generated and either saved or downloaded successfully.",
+    steps:[
+      {n:1, step:'Open "Generate Documents" section', data:"",              expected:"Document generation page loads",               actual:"Page exists with form UI",                   status:"pass", notes:""},
+      {n:2, step:"Choose document type",              data:"",              expected:"Student can select a document type",            actual:"4 document types shown as checkboxes",        status:"pass", notes:""},
+      {n:3, step:'Click "Generate"',                  data:"Selected type", expected:"System generates document using profile data",  actual:"2-second setTimeout fires; no real document", status:"fail", notes:"No /api/documents/generate endpoint; generation is mocked"},
+      {n:4, step:"Review generated document",         data:"",              expected:"Student can review the document",               actual:"No actual document content produced",         status:"fail", notes:""},
+      {n:5, step:"Save or download the document",     data:"",              expected:"Student can save or download",                  actual:'"Download" buttons shown but no file created', status:"fail", notes:"Buttons are decorative — no file produced"},
+    ]
+  },
+  {
+    id:"UC-7-TC-02", tableNum:49, num:25,
+    module:"Generate Application Documents", title:"Profile Information Missing", priority:"Medium", status:"fail",
+    desc:"Ensure the system prompts the student to complete their profile if required information is missing.",
+    pre:"The student is logged in.",
+    post:"The document is generated and either saved or downloaded successfully.",
+    steps:[
+      {n:1, step:'Open "Generate Documents" section', data:"",            expected:"Document generation page loads",                     actual:"Page loads",                                          status:"pass", notes:""},
+      {n:2, step:"Try to generate the document",      data:"Option",      expected:"System asks student to complete profile first",       actual:"No profile completeness check performed",             status:"fail", notes:"Form only validates its own fields (fullName etc.), not profile data"},
+      {n:3, step:"Try to generate the document",      data:"",            expected:"Missing profile information message displayed",       actual:"Generation proceeds regardless of profile state",     status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-7-TC-03", tableNum:50, num:26,
+    module:"Generate Application Documents", title:"Document Generation Error", priority:"Medium", status:"fail",
+    desc:"Test the system's response if there's an error during document generation.",
+    pre:"The student is logged in and has a complete profile.",
+    post:"The document is generated and either saved or downloaded successfully.",
+    steps:[
+      {n:1, step:'Open "Generate Documents" section',       data:"",       expected:"Document generation page loads",                  actual:"Page loads",                              status:"pass", notes:""},
+      {n:2, step:"Select a document to generate",           data:"Option", expected:"System attempts to generate document",           actual:"setTimeout mock starts",                  status:"fail", notes:"No real API call is made"},
+      {n:3, step:"Encounter failure during document creation",data:"",     expected:'"Error generating document. Please try again."',  actual:"No error handling for generation failure", status:"fail", notes:"No backend means no real errors can occur"},
+    ]
+  },
+  {
+    id:"UC-7-TC-04", tableNum:51, num:27,
+    module:"Generate Application Documents", title:"Editing Generated Document", priority:"Medium", status:"fail",
+    desc:"Verify that the student can edit the generated document before finalizing it.",
+    pre:"The student is logged in and has a complete profile.",
+    post:"The document is generated and either saved or downloaded successfully.",
+    steps:[
+      {n:1, step:'Open "Generate Documents" section', data:"", expected:"Document generation page loads",                      actual:"Page loads",                                  status:"pass", notes:""},
+      {n:2, step:"Edit the content of the document",  data:"", expected:"Student can modify document content",                 actual:"No editable document content available",      status:"fail", notes:"No actual document object to edit"},
+      {n:3, step:"Save or download edited document",  data:"", expected:"Student can save or download the updated document",   actual:"Download buttons are non-functional",         status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-8-TC-01", tableNum:52, num:28,
+    module:"Check Admission Probability", title:"Successful Calculation of Admission Probability", priority:"High", status:"pass",
+    desc:"Verify that the system correctly calculates and displays the admission probability.",
+    pre:"The student is logged in and profile is complete.",
+    post:"The student sees the admission probability for each selected university.",
+    steps:[
+      {n:1, step:'Access "Admission Probability" section', data:"",                       expected:'Page loads successfully',                                      actual:"Calculator page renders correctly",         status:"pass", notes:""},
+      {n:2, step:"Select universities to apply to",        data:"University names",        expected:"Student selects one or more universities",                     actual:"Manual input fields for marks and test score", status:"pass", notes:"University-specific mode replaced by general calculator"},
+      {n:3, step:'Click "Calculate"',                      data:"",                        expected:"Probability calculated and displayed for each university",     actual:"Weighted formula result shown with gauge",  status:"pass", notes:"Matric 30%, Inter 50%, Test 20% — result displayed visually"},
+    ]
+  },
+  {
+    id:"UC-8-TC-02", tableNum:53, num:29,
+    module:"Check Admission Probability", title:"Profile Information Missing", priority:"Medium", status:"fail",
+    desc:"Ensure the system prompts the student to complete their profile before calculating.",
+    pre:"The student is logged in.",
+    post:"The student sees the admission probability for each selected university.",
+    steps:[
+      {n:1, step:'Access "Admission Probability" section', data:"", expected:"Page loads successfully",                                     actual:"Page loads",                                         status:"pass", notes:""},
+      {n:2, step:"Try to calculate probability",           data:"", expected:"System detects missing profile, prompts to complete it",       actual:"No profile data fetched; user enters values manually", status:"fail", notes:"Calculator is standalone — doesn't pull from profile"},
+      {n:3, step:'Click "Calculate"',                      data:"", expected:"Calculation blocked, missing fields alerted",                  actual:"Any entered values produce a result",                 status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-8-TC-03", tableNum:54, num:30,
+    module:"Check Admission Probability", title:"Error During Data Processing", priority:"Medium", status:"fail",
+    desc:"Test if the system handles errors during admission probability data processing.",
+    pre:"The student is logged in and profile is complete.",
+    post:"The student sees the admission probability for each selected university.",
+    steps:[
+      {n:1, step:'Access "Admission Probability" section', data:"",               expected:"Page loads successfully",                               actual:"Page loads",                                 status:"pass", notes:""},
+      {n:2, step:"Select universities to apply to",        data:"University name", expected:"Student selects one or more universities",              actual:"No university selection — general calculator", status:"fail", notes:"University-specific lookup not implemented"},
+      {n:3, step:'Click "Calculate"',                      data:"",               expected:"System attempts data processing, encounters error",      actual:"Client-side formula; no async processing",    status:"fail", notes:""},
+      {n:4, step:"Receive error message",                  data:"",               expected:'"There was an issue processing your data" shown',        actual:"No error scenario possible — pure client calc", status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-9-TC-01", tableNum:55, num:31,
+    module:"Receive Dashboard Alerts", title:"Alert for Upcoming Deadlines", priority:"High", status:"fail",
+    desc:"Verify that the system generates an alert when important deadlines are approaching.",
+    pre:"The student is logged in, and a critical deadline is approaching.",
+    post:"The student is notified about an upcoming deadline via the dashboard alert.",
+    steps:[
+      {n:1, step:'Access "Dashboard" section',                   data:"", expected:"Dashboard loads properly",                                 actual:"Dashboard loads correctly",                           status:"pass", notes:""},
+      {n:2, step:"Wait for system to trigger deadline alert",    data:"", expected:"System generates alert when deadline is near",             actual:"No event-driven alert trigger system exists",         status:"fail", notes:"Two static hardcoded notifications; no cron/trigger"},
+      {n:3, step:"View the alert",                               data:"", expected:"Student sees alert about upcoming deadline",               actual:"Only generic 'Complete your profile' notifications",  status:"fail", notes:"No deadline-based alert mechanism implemented"},
+    ]
+  },
+  {
+    id:"UC-9-TC-02", tableNum:56, num:32,
+    module:"Receive Dashboard Alerts", title:"Reminder Alert for Missed Notifications", priority:"Medium", status:"fail",
+    desc:"Check if the system sends a reminder if the student misses an initial alert.",
+    pre:"The student is logged in.",
+    post:"The student is notified about an upcoming deadline via the dashboard alert.",
+    steps:[
+      {n:1, step:'Access "Dashboard" section',     data:"", expected:"Dashboard loads properly",                               actual:"Dashboard loads correctly",                    status:"pass", notes:""},
+      {n:2, step:"Miss the initial alert",          data:"", expected:"System sends a reminder alert",                          actual:"No reminder/re-notification logic exists",     status:"fail", notes:"No scheduled tasks or re-send mechanism"},
+      {n:3, step:"View the reminder alert",         data:"", expected:"Student sees reminder for missed notification",          actual:"No such system implemented",                  status:"fail", notes:""},
+    ]
+  },
+  {
+    id:"UC-10-TC-01", tableNum:57, num:33,
+    module:"Use AI-Powered Chatbot", title:"Successful Response from Chatbot", priority:"High", status:"pass",
+    desc:"Verify that the chatbot responds correctly to student inquiries.",
+    pre:"The student is logged in, and the chatbot is functioning.",
+    post:"The chatbot provides the correct answer to the student's query.",
+    steps:[
+      {n:1, step:"Access the chatbot interface", data:"",                                                     expected:"Chatbot interface opens without issues",               actual:"Chat widget opens; Claude API connected",       status:"pass", notes:""},
+      {n:2, step:"Ask a relevant question",      data:'"What are the best universities for Computer Science?"', expected:"Chatbot provides clear, relevant, accurate response",  actual:"University data from DB used in system prompt", status:"pass", notes:""},
+      {n:3, step:"Ask a relevant question",      data:"",                                                     expected:"Response directly addresses the question",             actual:"Response directly addresses admission topics",  status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"UC-10-TC-02", tableNum:58, num:34,
+    module:"Use AI-Powered Chatbot", title:"Handling Follow-Up Queries", priority:"Medium", status:"pass",
+    desc:"Ensure that the chatbot can handle follow-up questions.",
+    pre:"The student is logged in, and the chatbot is functioning.",
+    post:"The chatbot provides the correct answer to the student's query.",
+    steps:[
+      {n:1, step:"Access the chatbot interface", data:"",                                   expected:"Chatbot interface opens without issues",                      actual:"Chat widget opens correctly",                  status:"pass", notes:""},
+      {n:2, step:"Ask an initial question",      data:'"What are the best career paths in AI?"', expected:"Chatbot provides list of relevant career options",       actual:"Career options listed based on DB context",    status:"pass", notes:""},
+      {n:3, step:"Ask a follow-up question",     data:'"What qualifications are needed for AI?"', expected:"Chatbot provides specific qualifications and skills",  actual:"Conversation history sent with each request",  status:"pass", notes:"Full chat history array included in API payload"},
+    ]
+  },
+  {
+    id:"UC-10-TC-03", tableNum:59, num:35,
+    module:"Use AI-Powered Chatbot", title:"Handling Unsupported Questions", priority:"Medium", status:"pass",
+    desc:"Test if the chatbot can handle unsupported or out-of-context questions.",
+    pre:"The student is logged in, and the chatbot is functioning.",
+    post:"The chatbot provides the correct answer to the student's query.",
+    steps:[
+      {n:1, step:"Access the chatbot interface", data:"",                              expected:"Chatbot interface opens without issues",                     actual:"Widget opens correctly",                           status:"pass", notes:""},
+      {n:2, step:"Ask an unsupported question",  data:'"What is the capital of the Moon?"', expected:"Chatbot cannot answer and provides alternatives",    actual:"Keyword filter rejects; returns 'Please ask questions relevant to Admission Guide'", status:"pass", notes:"Topic restriction working via keyword detection"},
+    ]
+  },
+  {
+    id:"UC-10-TC-04", tableNum:60, num:36,
+    module:"Use AI-Powered Chatbot", title:"Error Handling in Chatbot", priority:"Medium", status:"pass",
+    desc:"Test the Chatbot's ability to handle errors in processing queries.",
+    pre:"The student is logged in, and the chatbot is functioning.",
+    post:"The chatbot provides the correct answer to the student's query.",
+    steps:[
+      {n:1, step:"Access the chatbot interface",  data:"",                                                   expected:"Chatbot interface opens without issues",         actual:"Widget opens correctly",                       status:"pass", notes:""},
+      {n:2, step:"Ask a question",                data:'"What are the admission requirements for CS?"',      expected:"Chatbot processes; encounters error",             actual:"try/catch wraps API call",                     status:"pass", notes:""},
+      {n:3, step:"Receive error messages",        data:"",                                                   expected:'"Sorry, there is an issue processing your request"', actual:"500 error returns message to user",           status:"pass", notes:"Error displayed in chat bubble"},
+    ]
+  },
+  {
+    id:"UC-11-TC-01", tableNum:61, num:37,
+    module:"Admin - Manage Users", title:"Add New Content to the Website", priority:"High", status:"fail",
+    desc:"Verify that the admin can successfully add new content to the website.",
+    pre:"Admin opens dashboard.",
+    post:"The new content has been successfully added to the website.",
+    steps:[
+      {n:1, step:'Navigate to "Manage Content" section', data:"",        expected:"Admin accesses content management page",    actual:"No 'Manage Content' section exists",            status:"fail", notes:"Admin dashboard shows stats and scraper; no CMS"},
+      {n:2, step:'Click "Add New Content"',              data:"",        expected:"Form opens to add new content",              actual:"No such button or page exists",                 status:"fail", notes:""},
+      {n:3, step:"Fill in content details",              data:"Content", expected:"Admin can input content",                   actual:"Feature not implemented",                       status:"fail", notes:""},
+      {n:4, step:"Submit the content",                   data:"",        expected:"Content saved with success message",         actual:"N/A",                                           status:"fail", notes:"No /api/admin/content endpoint"},
+    ]
+  },
+  {
+    id:"UC-11-TC-02", tableNum:62, num:38,
+    module:"Admin - Manage Users", title:"Update System Settings", priority:"Medium", status:"fail",
+    desc:"Verify that the admin can modify the system settings.",
+    pre:"Admin opens dashboard.",
+    post:"The system setting is updated successfully.",
+    steps:[
+      {n:1, step:'Navigate to "System Settings"', data:"",          expected:"Admin accesses system settings page",                actual:"Settings page UI exists",                    status:"pass", notes:""},
+      {n:2, step:"Select a setting to update",    data:"New value", expected:"System allows admin to update the setting",          actual:"Toggle switches and form fields present",    status:"pass", notes:""},
+      {n:3, step:"Save the changes",              data:"",          expected:"New setting applied; confirmation message shown",    actual:"setTimeout fires alert — no API call made",  status:"fail", notes:"Save is completely mocked with no database persistence"},
+    ]
+  },
+  {
+    id:"UC-11-TC-03", tableNum:63, num:39,
+    module:"Admin - Manage Users", title:"View Website Analytics", priority:"Medium", status:"fail",
+    desc:"Verify that the admin can access and view website analytics.",
+    pre:"Admin opens the dashboard.",
+    post:"The admin can view and export analytics data.",
+    steps:[
+      {n:1, step:'Access the "Analytics" section', data:"", expected:"Admin accesses analytics page",         actual:"Admin dashboard has 4 count cards (students, universities, programs, chatbot queries)", status:"fail", notes:"Stats visible but no proper analytics — no charts or trends"},
+      {n:2, step:"View the website analytics",     data:"", expected:"System displays data analytics",        actual:"Only aggregate counts shown; no charts, trends, exports, or user activity logs",       status:"fail", notes:"Not an analytics dashboard by standard definition"},
+    ]
+  },
+  {
+    id:"WC-TC-001", tableNum:64, num:40,
+    module:"Website Functionality", title:"Verify Homepage Loads Correctly", priority:"High", status:"pass",
+    desc:"Ensure the homepage loads properly with all its content.",
+    pre:"The website URL is functional and accessible.",
+    post:"The homepage is loaded successfully with proper content and functional links.",
+    steps:[
+      {n:1, step:"Open the homepage",           data:"", expected:"Homepage loads without errors; all content displayed",      actual:"Next.js SSR renders hero, features, how-it-works, CTA sections", status:"pass", notes:""},
+      {n:2, step:"Open the homepage",           data:"", expected:"Text, images, media displayed correctly and aligned",        actual:"All sections render with proper layout and assets",             status:"pass", notes:""},
+      {n:3, step:"Test all links on homepage",  data:"", expected:"All links redirect to correct pages",                       actual:"All nav links and CTAs point to correct routes",               status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"WC-TC-002", tableNum:65, num:41,
+    module:"Website Navigation", title:"Verify Navigation Links Functionality", priority:"High", status:"pass",
+    desc:"Ensure that the website's navigation links are working correctly.",
+    pre:"The website is live, and the navigation menu is visible.",
+    post:"All navigation links redirect to the correct pages.",
+    steps:[
+      {n:1, step:"Click each link in navigation menu", data:"", expected:"System redirects correctly for each link",   actual:"Navbar links (Home, About, Universities, Quiz) all work",   status:"pass", notes:""},
+      {n:2, step:"Verify content loads",               data:"", expected:"Each page loads fully with correct content",  actual:"Next.js router handles navigation; pages load",            status:"pass", notes:"About page exists at /about"},
+    ]
+  },
+  {
+    id:"WC-TC-003", tableNum:66, num:42,
+    module:"Website Performance", title:"Verify Website Load Speed", priority:"High", status:"pass",
+    desc:"Ensure the website loads within an acceptable time frame.",
+    pre:"The website is accessible and functional.",
+    post:"The website should load in an acceptable amount of time.",
+    steps:[
+      {n:1, step:"Load the homepage",     data:"", expected:"Website loads fully in 3–5 seconds",                   actual:"Next.js SSR + image optimization; loads well within limit", status:"pass", notes:""},
+      {n:2, step:"Test website pages",    data:"", expected:"All pages load quickly without noticeable delays",      actual:"Static generation for most pages; fast navigations",        status:"pass", notes:""},
+    ]
+  },
+  {
+    id:"WC-TC-004", tableNum:67, num:43,
+    module:"Website Backup & Recovery", title:"Verify Website Data Backup and Recovery", priority:"High", status:"fail",
+    desc:"Ensure that the website's data can be backed up and recovered successfully.",
+    pre:"The website is live and contains data.",
+    post:"Website data is successfully restored from backups.",
+    steps:[
+      {n:1, step:"Website is live and contains data", data:"", expected:"System simulates data loss",                              actual:"No backup mechanism or simulation tooling",              status:"fail", notes:"No backup schedule, no snapshot system"},
+      {n:2, step:"Restore data from backup",          data:"", expected:"System restores data from backup successfully",           actual:"No recovery API or restore procedure exists",            status:"fail", notes:"No /api/backup or /api/restore endpoints"},
+    ]
+  },
+];
+
+// ─── RENDER ─────────────────────────────────────────────────────────────────
+let allExpanded = false;
+
+function statusBadge(s) {
+  return s === 'pass'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+}
+
+function stepStatusHtml(s) {
+  return `<span class="step-status ${s}"><span class="step-dot"></span>${s.charAt(0).toUpperCase()+s.slice(1)}</span>`;
+}
+
+function renderCards(list) {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  if (!list.length) {
+    content.innerHTML = '<div class="no-results">No test cases match your filters.</div>';
+    return;
+  }
+
+  // Group by module
+  const groups = {};
+  list.forEach(tc => {
+    if (!groups[tc.module]) groups[tc.module] = [];
+    groups[tc.module].push(tc);
+  });
+
+  Object.entries(groups).forEach(([mod, cases]) => {
+    const g = document.createElement('div');
+    g.className = 'module-group';
+    g.innerHTML = `<div class="module-label">${mod}</div>`;
+    cases.forEach(tc => {
+      const card = document.createElement('div');
+      card.className = `tc-card ${tc.status}`;
+      card.dataset.module = tc.module;
+      card.dataset.status = tc.status;
+      card.dataset.title  = (tc.title + ' ' + tc.id + ' ' + tc.module).toLowerCase();
+
+      const stepsHtml = tc.steps.map(s => `
+        <tr>
+          <td class="step-num">${s.n}</td>
+          <td>${s.step}</td>
+          <td class="data-cell col-data">${s.data || '—'}</td>
+          <td>${s.expected}</td>
+          <td class="actual col-actual">${s.actual}</td>
+          <td style="text-align:center">${stepStatusHtml(s.status)}</td>
+          <td class="notes-cell col-actual">${s.notes || '—'}</td>
+        </tr>`).join('');
+
+      card.innerHTML = `
+        <div class="tc-header" onclick="toggleCard(this)">
+          <div class="status-icon ${tc.status}">${statusBadge(tc.status)}</div>
+          <div class="tc-meta">
+            <div class="tc-meta-top">
+              <span class="tc-id">${tc.id}</span>
+              <span class="tc-table-ref">· Table ${tc.tableNum}</span>
+              <span class="badge ${tc.status}">${tc.status === 'pass' ? 'Pass' : 'Fail'}</span>
+              ${tc.priority ? `<span class="badge ${tc.priority.toLowerCase()}">${tc.priority}</span>` : ''}
+            </div>
+            <div class="tc-title">TC-${String(tc.num).padStart(2,'0')} — ${tc.title}</div>
+            <div class="tc-module">${tc.module}</div>
+          </div>
+          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="tc-body">
+          <div class="tc-info-grid">
+            <div class="full"><span class="label">Description: </span><span class="val">${tc.desc}</span></div>
+            <div><span class="label">Pre-condition: </span><span class="val">${tc.pre}</span></div>
+            <div><span class="label">Designer: </span><span class="val">Neelam Shehzadi &nbsp;·&nbsp; 05/01/2026</span></div>
+          </div>
+          <div style="overflow-x:auto;border-radius:8px;border:1px solid #E5E7EB;">
+            <table>
+              <thead><tr>
+                <th style="width:30px">#</th>
+                <th>Test Step</th>
+                <th class="col-data">Test Data</th>
+                <th>Expected Result</th>
+                <th class="col-actual">Actual Result</th>
+                <th style="text-align:center;width:80px">Status</th>
+                <th class="col-actual">Notes</th>
+              </tr></thead>
+              <tbody>${stepsHtml}</tbody>
+            </table>
+          </div>
+          <div class="post-condition"><strong>Post-condition:</strong> ${tc.post}</div>
+        </div>`;
+      g.appendChild(card);
+    });
+    content.appendChild(g);
+  });
+}
+
+function toggleCard(header) {
+  const body    = header.nextElementSibling;
+  const chevron = header.querySelector('.chevron');
+  body.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+
+function toggleAll() {
+  allExpanded = !allExpanded;
+  document.querySelectorAll('.tc-body').forEach(b => b.classList.toggle('open', allExpanded));
+  document.querySelectorAll('.chevron').forEach(c => c.classList.toggle('open', allExpanded));
+  document.querySelector('.btn-expand-all').textContent = allExpanded ? 'Collapse All' : 'Expand All';
+}
+
+function filterCases() {
+  const q      = document.getElementById('searchBox').value.toLowerCase();
+  const mod    = document.getElementById('moduleFilter').value;
+  const status = document.getElementById('statusFilter').value;
+
+  const filtered = TC.filter(tc => {
+    const mMod  = mod    === 'all' || tc.module === mod;
+    const mStat = status === 'all' || tc.status === status;
+    const mQ    = !q || tc.title.toLowerCase().includes(q) || tc.id.toLowerCase().includes(q) || tc.module.toLowerCase().includes(q);
+    return mMod && mStat && mQ;
+  });
+  renderCards(filtered);
+}
+
+// Initial render
+renderCards(TC);
+</script>
+</body>
+</html>

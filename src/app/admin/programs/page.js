@@ -17,47 +17,22 @@ export default function ProgramsManagement() {
       return;
     }
 
-    // Simulate fetching programs data
-    setTimeout(() => {
-      setPrograms([
-        {
-          id: 1,
-          name: "BS Computer Science",
-          university: "FAST University",
-          field: "Computer Science",
-          merit: "80%",
-        },
-        {
-          id: 2,
-          name: "BS Software Engineering",
-          university: "NUST",
-          field: "Computer Science",
-          merit: "85%",
-        },
-        {
-          id: 3,
-          name: "BBA",
-          university: "LUMS",
-          field: "Business",
-          merit: "82%",
-        },
-        {
-          id: 4,
-          name: "MBBS",
-          university: "King Edward Medical University",
-          field: "Medical",
-          merit: "90%",
-        },
-        {
-          id: 5,
-          name: "BS Electrical Engineering",
-          university: "COMSATS",
-          field: "Engineering",
-          merit: "78%",
-        },
-      ]);
-      setLoading(false);
-    }, 500);
+    fetch("/api/admin/programs", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) { router.push("/"); return; }
+        setPrograms(
+          (data.programs || []).map((p) => ({
+            ...p,
+            field: p.field || "—",
+            merit: p.merit_percentage ? `${p.merit_percentage}%` : "—",
+          }))
+        );
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [router]);
 
   const handleDelete = (id, name) => {

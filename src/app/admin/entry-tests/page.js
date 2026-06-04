@@ -17,40 +17,21 @@ export default function EntryTestsManagement() {
       return;
     }
 
-    // Simulate fetching entry tests data
-    setTimeout(() => {
-      setEntryTests([
-        {
-          id: 1,
-          name: "FAST Entry Test",
-          type: "MCQs",
-          duration: "120 minutes",
-          subjects: ["Math", "Physics", "English", "IQ"],
-        },
-        {
-          id: 2,
-          name: "NTS Test",
-          type: "MCQs",
-          duration: "180 minutes",
-          subjects: ["Math", "English", "Analytical"],
-        },
-        {
-          id: 3,
-          name: "ECAT",
-          type: "MCQs",
-          duration: "150 minutes",
-          subjects: ["Math", "Physics", "Chemistry", "English"],
-        },
-        {
-          id: 4,
-          name: "MDCAT",
-          type: "MCQs",
-          duration: "210 minutes",
-          subjects: ["Biology", "Chemistry", "Physics", "English"],
-        },
-      ]);
-      setLoading(false);
-    }, 500);
+    fetch("/api/admin/entry-tests", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) { router.push("/"); return; }
+        setEntryTests(
+          (data.tests || []).map((t) => ({
+            ...t,
+            subjects: Array.isArray(t.subjects) ? t.subjects : [],
+          }))
+        );
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [router]);
 
   const handleDelete = (id, name) => {

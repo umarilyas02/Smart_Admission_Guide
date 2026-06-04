@@ -17,47 +17,22 @@ export default function StudentsManagement() {
       return;
     }
 
-    // Simulate fetching students data
-    setTimeout(() => {
-      setStudents([
-        {
-          id: 1,
-          name: "Ali Khan",
-          email: "ali@email.com",
-          academicLevel: "FSc Pre-Engineering",
-          status: "Active",
-        },
-        {
-          id: 2,
-          name: "Fatima Ahmed",
-          email: "fatima@email.com",
-          academicLevel: "A-Levels",
-          status: "Active",
-        },
-        {
-          id: 3,
-          name: "Hassan Ali",
-          email: "hassan@email.com",
-          academicLevel: "FSc Pre-Medical",
-          status: "Blocked",
-        },
-        {
-          id: 4,
-          name: "Ayesha Malik",
-          email: "ayesha@email.com",
-          academicLevel: "ICS",
-          status: "Active",
-        },
-        {
-          id: 5,
-          name: "Usman Tariq",
-          email: "usman@email.com",
-          academicLevel: "FSc Pre-Engineering",
-          status: "Active",
-        },
-      ]);
-      setLoading(false);
-    }, 500);
+    fetch("/api/admin/students", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) { router.push("/"); return; }
+        setStudents(
+          (data.students || []).map((s) => ({
+            ...s,
+            academicLevel: s.academic_level || "—",
+            status: "Active",
+          }))
+        );
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [router]);
 
   const handleBlock = (id, name) => {

@@ -23,33 +23,49 @@ export default function UniversitiesManagement() {
       return;
     }
 
-    // Simulate fetching universities data
-    setTimeout(() => {
-      setUniversities([
-        { id: 1, name: "FAST University", location: "Islamabad", type: "Public" },
-        { id: 2, name: "University of Punjab", location: "Lahore", type: "Public" },
-        { id: 3, name: "COMSATS University", location: "Islamabad", type: "Public" },
-        { id: 4, name: "NUST", location: "Islamabad", type: "Public" },
-        { id: 5, name: "LUMS", location: "Lahore", type: "Private" },
-      ]);
-      setLoading(false);
-    }, 500);
+    fetch("/api/universities", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setUniversities(data.universities || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [router]);
 
-  const handleAddUniversity = () => {
+  const handleAddUniversity = async () => {
     if (!newUniversity.name || !newUniversity.location) {
       alert("Please fill in all fields");
       return;
     }
 
-    const newId = Math.max(...universities.map((u) => u.id), 0) + 1;
-    setUniversities([...universities, { id: newId, ...newUniversity }]);
-    setNewUniversity({ name: "", location: "", type: "Public" });
-    setShowAddModal(false);
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch("/api/universities", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify([
+        { name: newUniversity.name, location: newUniversity.location },
+      ]),
+    });
+    if (res.ok) {
+      const data = await fetch("/api/universities").then((r) => r.json());
+      setUniversities(data.universities || []);
+      setNewUniversity({ name: "", location: "", type: "Public" });
+      setShowAddModal(false);
+    }
   };
 
-  const handleDelete = (id, name) => {
+  const handleDelete = async (id, name) => {
     if (confirm(`Are you sure you want to delete ${name}?`)) {
+      const token = localStorage.getItem("auth_token");
+      await fetch(`/api/universities/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setUniversities(universities.filter((uni) => uni.id !== id));
     }
   };
