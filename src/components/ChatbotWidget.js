@@ -6,7 +6,7 @@ import { X, Send, Sparkles, ChevronDown, Bot } from "lucide-react";
 const WELCOME_MSG = {
   id: "welcome",
   role: "assistant",
-  text: "Hello! I'm **SAG AI**, your smart admission guide.\n\nI can help you with:\n• University merits & eligibility\n• Entry test preparation (ECAT, MDCAT, NET)\n• Scholarships & fees\n• Program & campus info\n\nWhat would you like to know?",
+  text: "Hello! I'm **SAG AI**, your smart admission guide.\n\nI can help you with:\n• University merits & eligibility\n• Entry test preparation (ECAT, NET)\n• Scholarships & fees\n• Program & campus info\n\nWhat would you like to know?",
 };
 
 function TypingDots() {
@@ -207,7 +207,7 @@ export default function ChatbotWidget() {
 
           {/* Suggestions */}
           <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide border-t border-gray-50 bg-white">
-            {["NUST merit?", "MDCAT prep tips", "Scholarship options"].map((s) => (
+            {["NUST merit?", "ECAT prep tips", "Scholarship options"].map((s) => (
               <button
                 key={s}
                 onClick={() => { setInput(s); inputRef.current?.focus(); }}

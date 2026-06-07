@@ -1,9 +1,45 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { query, queryMany } from '@/lib/db';
+import { query, queryMany, queryOne } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
+
+// Rate limiting: Max 10 conversations per user per hour
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+async function checkRateLimit(userId) {
+  if (!userId) return { allowed: true }; // Anonymous users bypass for now
+
+  try {
+    // Get count of messages from this user in the last hour
+    const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
+    const result = await queryOne(
+      `SELECT COUNT(*) as count FROM chat_logs
+       WHERE user_id = $1 AND created_at > $2`,
+      [userId, oneHourAgo]
+    );
+
+    const messageCount = result?.count || 0;
+    if (messageCount >= RATE_LIMIT_MAX) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+      };
+    }
+
+    return {
+      allowed: true,
+      remaining: RATE_LIMIT_MAX - messageCount,
+    };
+  } catch (err) {
+    console.error('Rate limit check failed:', err.message);
+    // Allow request if check fails (fail-open)
+    return { allowed: true };
+  }
+}
 
 async function ensureTable() {
   await query(`
@@ -123,11 +159,11 @@ ${dbContext}
 
 function isAdmissionRelated(text) {
   const keywords = [
-    'university', 'admission', 'merit', 'test', 'ecat', 'mdcat', 'nust', 'fast',
+    'university', 'admission', 'merit', 'test', 'ecat', 'nust', 'fast',
     'lums', 'iba', 'comsats', 'giki', 'uet', 'scholarship', 'program', 'degree',
-    'bs', 'bba', 'mbbs', 'fee', 'hostel', 'apply', 'application', 'eligibility',
+    'bs', 'bba', 'fee', 'hostel', 'apply', 'application', 'eligibility',
     'marks', 'percentage', 'score', 'entry', 'enroll', 'campus', 'department',
-    'study', 'course', 'career', 'pakistan', 'hec', 'medical', 'engineering',
+    'study', 'course', 'career', 'pakistan', 'hec', 'engineering',
     'computer', 'software', 'business', 'arts', 'science', 'education', 'sag',
   ];
   const lower = text.toLowerCase();
@@ -150,6 +186,19 @@ export async function POST(req) {
     if (token) {
       const decoded = verifyToken(token);
       if (decoded?.userId) userId = decoded.userId;
+    }
+
+    // Check rate limit: Max 10 conversations per user per hour
+    const rateLimitCheck = await checkRateLimit(userId);
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded. Maximum 10 messages per hour.',
+          remaining: 0,
+          resetTime: rateLimitCheck.resetTime,
+        },
+        { status: 429 }
+      );
     }
 
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
@@ -185,7 +234,18 @@ export async function POST(req) {
       console.error('chat_logs insert error (non-fatal):', dbErr.message);
     }
 
-    return NextResponse.json({ message: assistantText, relevant });
+    // Get updated rate limit info
+    const updatedRateLimit = await checkRateLimit(userId);
+
+    return NextResponse.json({
+      message: assistantText,
+      relevant,
+      rateLimit: {
+        remaining: updatedRateLimit.remaining,
+        limit: RATE_LIMIT_MAX,
+        window: '1 hour',
+      },
+    });
   } catch (err) {
     console.error('POST /api/chatbot error:', err);
     return NextResponse.json({ error: 'SAG AI is unavailable right now.' }, { status: 500 });

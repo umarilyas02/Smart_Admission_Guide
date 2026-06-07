@@ -82,16 +82,23 @@ export async function POST(req) {
     }
 
     const inserted = [];
+    const skipped = [];
+    let itemIndex = 0;
 
     for (const it of items) {
+      itemIndex++;
       const validation = validateItem(it);
       if (!validation.valid) {
-        console.warn('Skipping item due to validation errors', validation.errors, it);
+        const university = (it.university_name || it.name || 'Unknown').trim();
+        const skipReason = `Validation errors: ${validation.errors.join(', ')}`;
+        skipped.push({ university, errors: validation.errors });
+        console.warn(`[${itemIndex}] ❌ SKIP: ${university} - ${skipReason}`);
         continue;
       }
 
       const name = (it.university_name || it.name || '').trim();
       let universityId = await findUniversityIdByName(name);
+      let action = 'created';
 
       if (universityId) {
         await query(
@@ -102,6 +109,7 @@ export async function POST(req) {
            WHERE id = $1`,
           [universityId, it.details || null, it.website || null]
         );
+        action = 'updated';
       } else {
         const res = await query(
           `INSERT INTO universities(name, description, website, created_at)
@@ -142,6 +150,7 @@ export async function POST(req) {
       }
 
       const programsRaw = it.programs_offered || it.programs || '';
+      const programsInserted = [];
       if (programsRaw) {
         const programs = programsRaw.split(/,|;/).map(p => p.trim()).filter(Boolean);
         // dedupe program names by normalizing
@@ -154,14 +163,31 @@ export async function POST(req) {
           const exists = await queryOne('SELECT id FROM programs WHERE university_id=$1 AND lower(name)=lower($2)', [universityId, p]);
           if (!exists) {
             await query('INSERT INTO programs (university_id, name, created_at) VALUES ($1,$2,NOW())', [universityId, p]);
+            programsInserted.push(p);
           }
         }
       }
 
+      const startDate = parseDate(it.start_date || it.start || '');
+      const endDate = parseDate(it.end_date || it.end || '');
+      console.log(`[${itemIndex}] ✅ SAVE: ${name} (${action}) - Events: ${startDate} to ${endDate}, Programs: ${programsInserted.length}`);
+
       inserted.push({ universityId, name });
     }
 
-    return NextResponse.json({ inserted_count: inserted.length, inserted }, { status: 201 });
+    console.log(`\n📊 Summary: ${inserted.length} saved, ${skipped.length} skipped out of ${items.length} total`);
+
+    return NextResponse.json({
+      inserted_count: inserted.length,
+      inserted,
+      skipped_count: skipped.length,
+      skipped,
+      summary: {
+        total: items.length,
+        saved: inserted.length,
+        skipped: skipped.length,
+      }
+    }, { status: 201 });
   } catch (err) {
     console.error('POST /api/universities error', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
