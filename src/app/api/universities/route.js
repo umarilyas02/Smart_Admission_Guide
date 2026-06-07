@@ -177,23 +177,56 @@ export async function GET() {
       []
     );
 
-    const results = [];
-    for (const u of universities) {
-      const events = await queryMany(
-        `SELECT id, event_type, start_date, end_date, status, details, created_at, updated_at
-         FROM university_events WHERE university_id=$1 ORDER BY start_date NULLS LAST`,
-        [u.id]
-      );
-
-      const programs = await queryMany('SELECT id, name FROM programs WHERE university_id=$1 ORDER BY name', [u.id]);
-
-      results.push({ ...u, events, programs });
+    if (universities.length === 0) {
+      return NextResponse.json({ universities: [] });
     }
+
+    const ids = universities.map((u) => u.id);
+
+    // Fetch events and programs for every university in two bulk queries
+    // instead of two queries per university (avoids an N+1 round-trip storm
+    // that is slow and failure-prone across regions).
+    const events = await queryMany(
+      `SELECT id, university_id, event_type, start_date, end_date, status, details, created_at, updated_at
+       FROM university_events
+       WHERE university_id = ANY($1)
+       ORDER BY start_date NULLS LAST`,
+      [ids]
+    );
+
+    const programs = await queryMany(
+      `SELECT id, university_id, name
+       FROM programs
+       WHERE university_id = ANY($1)
+       ORDER BY name`,
+      [ids]
+    );
+
+    const eventsByUni = new Map();
+    for (const e of events) {
+      if (!eventsByUni.has(e.university_id)) eventsByUni.set(e.university_id, []);
+      eventsByUni.get(e.university_id).push(e);
+    }
+
+    const programsByUni = new Map();
+    for (const p of programs) {
+      if (!programsByUni.has(p.university_id)) programsByUni.set(p.university_id, []);
+      programsByUni.get(p.university_id).push(p);
+    }
+
+    const results = universities.map((u) => ({
+      ...u,
+      events: eventsByUni.get(u.id) || [],
+      programs: programsByUni.get(u.id) || [],
+    }));
 
     return NextResponse.json({ universities: results });
   } catch (err) {
     console.error('GET /api/universities error', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Server error', detail: err.message, code: err.code },
+      { status: 500 }
+    );
   }
 }
 
