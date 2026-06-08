@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS students (
   intermediate_marks DECIMAL(5,2),
   test_score DECIMAL(5,2),
   interests TEXT,
+  application_form JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id)

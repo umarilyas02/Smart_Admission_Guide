@@ -56,6 +56,12 @@ export default function Navbar() {
             <Link href="/about" className="text-gray-700 hover:text-primary transition">About</Link>
             <Link href="/recommendation" className="text-gray-700 hover:text-primary transition">Universities</Link>
             <Link href="/quiz" className="text-gray-700 hover:text-primary transition">Quiz</Link>
+            <Link
+              href={isLoggedIn ? "/application-pack" : "/auth?mode=login"}
+              className="text-gray-700 hover:text-primary transition"
+            >
+              Application Pack
+            </Link>
             {isLoggedIn ? (
               <>
                 <Link href="/dashboard" className="text-gray-700 hover:text-primary transition">Dashboard</Link>
@@ -76,6 +82,12 @@ export default function Navbar() {
             <Link href="/about" className="block text-gray-700 hover:text-primary transition py-2">About</Link>
             <Link href="/recommendation" className="block text-gray-700 hover:text-primary transition py-2">Universities</Link>
             <Link href="/quiz" className="block text-gray-700 hover:text-primary transition py-2">Quiz</Link>
+            <Link
+              href={isLoggedIn ? "/application-pack" : "/auth?mode=login"}
+              className="block text-gray-700 hover:text-primary transition py-2"
+            >
+              Application Pack
+            </Link>
             {isLoggedIn ? (
               <>
                 <Link href="/dashboard" className="block text-gray-700 hover:text-primary transition py-2">Dashboard</Link>

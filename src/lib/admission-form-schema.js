@@ -1,0 +1,81 @@
+export const admissionFormSections = [
+  {
+    id: 'personal',
+    title: 'A — Personal Information',
+    fields: [
+      { id: 'fullName',       label: 'Full Name (as per CNIC / B-Form)', type: 'text',   placeholder: 'e.g. Muhammad Ali Khan',   required: true },
+      { id: 'fatherName',     label: "Father's Full Name",               type: 'text',   placeholder: 'e.g. Muhammad Arif Khan',  required: true },
+      { id: 'dateOfBirth',    label: 'Date of Birth',                    type: 'date',                                            required: true },
+      { id: 'gender',         label: 'Gender',                           type: 'select', options: ['', 'Male', 'Female', 'Other'], required: true },
+      { id: 'cnic',           label: 'CNIC / B-Form Number',             type: 'text',   placeholder: '12345-1234567-1',          required: true },
+      { id: 'fatherCnic',     label: "Father's CNIC",                    type: 'text',   placeholder: '12345-1234567-1',          required: true },
+      { id: 'domicile',       label: 'Domicile Province',                type: 'select', options: ['', 'Punjab', 'Sindh', 'KPK', 'Balochistan', 'Gilgit-Baltistan', 'AJK', 'ICT'], required: true },
+      { id: 'nationality',    label: 'Nationality',                      type: 'text',   placeholder: 'Pakistani',               required: false },
+      { id: 'religion',       label: 'Religion',                         type: 'text',   placeholder: 'Islam',                   required: false },
+      { id: 'email',          label: 'Email Address',                    type: 'email',  placeholder: 'student@email.com',       required: true },
+      { id: 'phone',          label: 'Mobile Number',                    type: 'tel',    placeholder: '03XX-XXXXXXX',            required: true },
+      { id: 'address',        label: 'Permanent Address',                type: 'textarea', placeholder: 'House No., Street, City', rows: 2, required: true, span: true },
+    ],
+  },
+  {
+    id: 'academic',
+    title: 'B — Academic Background',
+    fields: [
+      { id: 'matricBoard',    label: 'Matric Board',              type: 'select', options: ['', 'Federal Board', 'Lahore Board', 'Karachi Board', 'Rawalpindi Board', 'Gujranwala Board', 'Faisalabad Board', 'Multan Board', 'Bahawalpur Board', 'DG Khan Board', 'Sargodha Board', 'Sahiwal Board', 'Other'], required: true },
+      { id: 'matricYear',     label: 'Matric Passing Year',       type: 'number', placeholder: '2023', required: true },
+      { id: 'matricTotal',    label: 'Matric Total Marks',        type: 'number', placeholder: '1100', required: true },
+      { id: 'matricObtained', label: 'Matric Obtained Marks',     type: 'number', placeholder: '950',  required: true },
+      { id: 'interBoard',     label: 'Intermediate Board',        type: 'select', options: ['', 'Federal Board', 'Lahore Board', 'Karachi Board', 'Rawalpindi Board', 'Gujranwala Board', 'Faisalabad Board', 'Multan Board', 'Bahawalpur Board', 'DG Khan Board', 'Sargodha Board', 'Sahiwal Board', 'Other'], required: true },
+      { id: 'interYear',      label: 'Intermediate Passing Year', type: 'number', placeholder: '2025', required: true },
+      { id: 'interTotal',     label: 'Intermediate Total Marks',  type: 'number', placeholder: '1100', required: true },
+      { id: 'interObtained',  label: 'Intermediate Obtained Marks', type: 'number', placeholder: '980', required: true },
+      { id: 'interGroup',     label: 'Intermediate Group/Major',  type: 'select', options: ['', 'Pre-Engineering', 'Pre-Medical', 'Computer Science', 'Commerce', 'Arts', 'General Science', 'Other'], required: true },
+    ],
+  },
+  {
+    id: 'entrytest',
+    title: 'C — Entry Test',
+    fields: [
+      { id: 'entryTestName',   label: 'Entry Test Name',    type: 'select', options: ['', 'ECAT', 'MDCAT', 'NET (NUST)', 'GIKI Test', 'IBA Test', 'NTS', 'SAT (US)', 'Other'], required: false },
+      { id: 'entryTestScore',  label: 'Score / Percentile', type: 'text',   placeholder: 'e.g. 156 / 200 or 85th percentile', required: false },
+      { id: 'entryTestYear',   label: 'Test Year',          type: 'number', placeholder: '2025', required: false },
+    ],
+  },
+  {
+    id: 'program',
+    title: 'D — Program Preferences',
+    fields: [
+      { id: 'university1',  label: '1st Choice — University', type: 'text', placeholder: 'e.g. NUST, Islamabad',    required: true },
+      { id: 'program1',     label: '1st Choice — Program',    type: 'text', placeholder: 'e.g. BE Software Engineering', required: true },
+      { id: 'university2',  label: '2nd Choice — University', type: 'text', placeholder: 'e.g. FAST-NUCES',         required: false },
+      { id: 'program2',     label: '2nd Choice — Program',    type: 'text', placeholder: 'e.g. BS Computer Science', required: false },
+      { id: 'university3',  label: '3rd Choice — University', type: 'text', placeholder: 'e.g. COMSATS',            required: false },
+      { id: 'program3',     label: '3rd Choice — Program',    type: 'text', placeholder: 'e.g. BS IT',              required: false },
+    ],
+  },
+  {
+    id: 'additional',
+    title: 'E — Additional Information',
+    fields: [
+      { id: 'achievements',    label: 'Academic / Extracurricular Achievements', type: 'textarea', rows: 3, placeholder: 'Awards, positions, competitions, certifications...', required: false, span: true },
+      { id: 'motivation',      label: 'Why do you want to study this program?',  type: 'textarea', rows: 4, placeholder: 'Explain your interest and how it aligns with your goals...', required: false, span: true },
+      { id: 'careerGoals',     label: 'Career Goals',                            type: 'textarea', rows: 3, placeholder: 'What do you want to do after graduating?', required: false, span: true },
+      { id: 'extraInfo',       label: 'Any other information to share?',         type: 'textarea', rows: 2, placeholder: 'Disabilities, special circumstances, etc.', required: false, span: true },
+    ],
+  },
+];
+
+export const documentChecklist = [
+  { id: 'matricCert',     label: 'Matric Certificate / DMC (attested)',        required: true },
+  { id: 'interCert',      label: 'Intermediate Certificate / DMC (attested)',  required: true },
+  { id: 'cnicCopy',       label: 'CNIC or B-Form copy (attested)',             required: true },
+  { id: 'fatherCnicCopy', label: "Father's CNIC copy (attested)",              required: true },
+  { id: 'domicileCert',   label: 'Domicile Certificate',                       required: true },
+  { id: 'photos',         label: 'Passport-size photographs (4–6 copies)',     required: true },
+  { id: 'entryTestCard',  label: 'Entry Test Result Card / Score Report',      required: true },
+  { id: 'charCert',       label: 'Character Certificate (from last institution)', required: true },
+  { id: 'migrationCert',  label: 'Migration Certificate (if changing board)',  required: false },
+  { id: 'hafizCert',      label: 'Hafiz-e-Quran Certificate (if applicable)',  required: false },
+  { id: 'sportsCert',     label: 'Sports / Extracurricular Certificates',      required: false },
+  { id: 'disabilityCert', label: 'Disability Certificate (if applicable)',     required: false },
+];
