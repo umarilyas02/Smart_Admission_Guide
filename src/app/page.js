@@ -106,7 +106,7 @@ export default function HomePage() {
       icon: Target,
       title: "University Recommendations",
       description: "Browse universities and programs tailored to your academic background and career goals.",
-      href: "/recommendation",
+      href: "/universities",
       cta: "Explore Universities",
       accent: "blue",
       gated: false,
