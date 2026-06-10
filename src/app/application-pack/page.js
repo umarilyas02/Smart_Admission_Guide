@@ -219,7 +219,7 @@ function DocumentCard({ doc, isLoggedIn, generated, onGenerate, generating, reco
         <div className={`rounded-lg px-3 py-2 text-xs flex items-start gap-2 ${isGenerated ? "bg-amber-50 border border-amber-100 text-amber-700" : "bg-purple-50 border border-purple-100 text-purple-700"}`}>
           {isGenerated
             ? <><AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> You have already generated your motivation letter. Each student may generate it once — make sure you saved the file.</>
-            : <><Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Written by Claude AI based on your form details. You get <strong>one generation</strong> — save the PDF immediately.</>
+            : <><Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Written by SAG AI based on your form details. You get <strong>one generation</strong> — save the PDF immediately.</>
           }
         </div>
       )}

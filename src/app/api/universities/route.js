@@ -42,8 +42,14 @@ function validateItem(it) {
   if (!name) errors.push('missing university name');
   if (it.event_type && typeof it.event_type !== 'string') errors.push('invalid event_type');
   if (it.status && typeof it.status !== 'string') errors.push('invalid status');
-  // programs_offered can be empty but if present must be a string
-  if (it.programs_offered && typeof it.programs_offered !== 'string') errors.push('invalid programs_offered');
+  // programs_offered can be empty but if present must be a string OR an array of strings
+  if (
+    it.programs_offered &&
+    typeof it.programs_offered !== 'string' &&
+    !Array.isArray(it.programs_offered)
+  ) {
+    errors.push('invalid programs_offered');
+  }
   // validate dates
   const s = it.start_date || it.start || '';
   const e = it.end_date || it.end || '';
@@ -65,6 +71,24 @@ async function findUniversityIdByName(name) {
   return existing ? existing.id : null;
 }
 
+// Accept programs as an array (preferred) or a comma/semicolon-separated string
+// (legacy). Returns a deduped list of clean program names.
+function normalizePrograms(raw) {
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : String(raw).split(/,|;/);
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const p = String(item).replace(/\s+/g, ' ').trim();
+    if (!p || p.toLowerCase() === 'program list unavailable') continue;
+    const key = p.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out;
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -83,6 +107,7 @@ export async function POST(req) {
 
     const inserted = [];
     const skipped = [];
+    let totalProgramsInserted = 0;
     let itemIndex = 0;
 
     for (const it of items) {
@@ -149,33 +174,66 @@ export async function POST(req) {
         );
       }
 
-      const programsRaw = it.programs_offered || it.programs || '';
+      const programs = normalizePrograms(it.programs_offered || it.programs);
       const programsInserted = [];
-      if (programsRaw) {
-        const programs = programsRaw.split(/,|;/).map(p => p.trim()).filter(Boolean);
-        // dedupe program names by normalizing
-        const seen = new Set();
-        for (const raw of programs) {
-          const p = raw.replace(/\s+/g, ' ').trim();
-          const key = p.toLowerCase();
-          if (!p || seen.has(key)) continue;
-          seen.add(key);
-          const exists = await queryOne('SELECT id FROM programs WHERE university_id=$1 AND lower(name)=lower($2)', [universityId, p]);
-          if (!exists) {
-            await query('INSERT INTO programs (university_id, name, created_at) VALUES ($1,$2,NOW())', [universityId, p]);
-            programsInserted.push(p);
-          }
+      if (programs.length > 0) {
+        // Fetch all existing names once, filter new ones in memory (avoids a
+        // SELECT round-trip per program).
+        const existingRows = await queryMany(
+          'SELECT lower(name) AS name FROM programs WHERE university_id=$1',
+          [universityId]
+        );
+        const existing = new Set(existingRows.map((r) => r.name));
+        const toInsert = programs.filter((p) => !existing.has(p.toLowerCase()));
+
+        // Bulk-insert the new programs in chunks (one multi-row INSERT per chunk).
+        const CHUNK = 100;
+        for (let i = 0; i < toInsert.length; i += CHUNK) {
+          const chunk = toInsert.slice(i, i + CHUNK);
+          const values = [];
+          const params = [];
+          chunk.forEach((p, j) => {
+            // ($1,$2,NOW()), ($3,$4,NOW()), ...
+            values.push(`($${j * 2 + 1}, $${j * 2 + 2}, NOW())`);
+            params.push(universityId, p);
+          });
+          await query(
+            `INSERT INTO programs (university_id, name, created_at) VALUES ${values.join(', ')}`,
+            params
+          );
+          programsInserted.push(...chunk);
         }
       }
 
+      // Count every program now attached to this university (new + pre-existing).
+      const programTotalRow = await queryOne(
+        'SELECT COUNT(*)::int AS count FROM programs WHERE university_id=$1',
+        [universityId]
+      );
+      const programsTotal = programTotalRow ? programTotalRow.count : programsInserted.length;
+      totalProgramsInserted += programsInserted.length;
+
       const startDate = parseDate(it.start_date || it.start || '');
       const endDate = parseDate(it.end_date || it.end || '');
-      console.log(`[${itemIndex}] ✅ SAVE: ${name} (${action}) - Events: ${startDate} to ${endDate}, Programs: ${programsInserted.length}`);
+      console.log(
+        `[${itemIndex}] ✅ SAVE: ${name} (${action}) - Events: ${startDate} to ${endDate}, ` +
+        `Programs: +${programsInserted.length} new / ${programsTotal} total`
+      );
 
-      inserted.push({ universityId, name });
+      inserted.push({
+        universityId,
+        name,
+        action,
+        programs_inserted: programsInserted.length,
+        programs_total: programsTotal,
+        programs_offered: programs,
+      });
     }
 
-    console.log(`\n📊 Summary: ${inserted.length} saved, ${skipped.length} skipped out of ${items.length} total`);
+    console.log(
+      `\n📊 Summary: ${inserted.length} saved, ${skipped.length} skipped out of ${items.length} total ` +
+      `(${totalProgramsInserted} new programs)`
+    );
 
     return NextResponse.json({
       inserted_count: inserted.length,
@@ -186,6 +244,7 @@ export async function POST(req) {
         total: items.length,
         saved: inserted.length,
         skipped: skipped.length,
+        programs_inserted: totalProgramsInserted,
       }
     }, { status: 201 });
   } catch (err) {
@@ -221,7 +280,7 @@ export async function GET() {
     );
 
     const programs = await queryMany(
-      `SELECT id, university_id, name
+      `SELECT id, university_id, name, fee, duration, eligibility
        FROM programs
        WHERE university_id = ANY($1)
        ORDER BY name`,

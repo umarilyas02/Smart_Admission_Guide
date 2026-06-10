@@ -20,33 +20,90 @@ VALID_MONTHS = {
     'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
     'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
 }
-date_pattern = r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})"
 
-# 2. Dictionary of target programs
-target_programs = [
-    "Computer Science",
-    "Software Engineering",
-    "Artificial Intelligence",
-    "Data Science",
-    "Cyber Security",
-    "Information Technology",
-    "Business Analytics",
-    "Accounting and Finance",
-    "Business Administration",
-    "BBA",
-    "Civil Engineering",
-    "Electrical Engineering",
-    "Mechanical Engineering",
-    "Mathematics",
-    "Clinical Psychology",
-    "English Literature",
-    "Media and Communication",
-    "Human Nutrition and Dietetics",
-    "Biotechnology"
-]
+FULL_MONTHS = {
+    'January': 'Jan', 'February': 'Feb', 'March': 'Mar', 'April': 'Apr',
+    'May': 'May', 'June': 'Jun', 'July': 'Jul', 'August': 'Aug',
+    'September': 'Sep', 'October': 'Oct', 'November': 'Nov', 'December': 'Dec'
+}
+
+_MON = r'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec'
+_FULL = r'January|February|March|April|May|June|July|August|September|October|November|December'
+# Pattern 1: "Mon DD" — day must be followed by non-alphanumeric to avoid "Jan 2026" → "Jan 20" and "Aug 1st"
+pat_mon_day    = rf'({_MON})\s+(\d{{1,2}})(?=[^0-9a-zA-Z]|$)'
+# Pattern 2: "DDth FullMonth" — e.g. "7th April", "23rd June"
+pat_ord_full   = rf'(\d{{1,2}})(?:st|nd|rd|th)\s+({_FULL})\b'
+# Pattern 3: "DD Mon" — e.g. "31 May", "24 Jul"
+pat_day_mon    = rf'(?<!\d)(\d{{1,2}})\s+({_MON})\b'
+# Pattern 4: "DD FullMonth" (no ordinal) — e.g. "14 June", "09 August"
+pat_day_full   = rf'(?<!\d)(\d{{1,2}})\s+({_FULL})\b'
+# Pattern 5: "FullMonth DD" — e.g. "June 05", "January 27"
+# Negative lookbehinds prevent matching when month follows an ordinal ("7th April 2 ..." → "April" skipped)
+pat_full_day   = rf'(?<!st )(?<!nd )(?<!rd )(?<!th )({_FULL})\s+(\d{{1,2}})(?=[^0-9a-zA-Z]|$)'
+
+# 2. Program extraction — regex-based, no hardcoded list
+
+# Full degree name: "Bachelor/Master/Doctor of X" optionally "(Specialization)"
+_DEG_FULL = re.compile(
+    r'\b(Bachelor[s]?|Master[s]?|Doctor)\s+of\s+([A-Za-z][A-Za-z\s&,]{1,50}?)(?:\s*\(([^)]{2,60})\))?'
+    r'(?=\s+(?:Bachelor|Master|Doctor|BS\b|MS\b|PhD\b|BBA\b|MBA\b|\d)|[,\n]|\Z)',
+    re.IGNORECASE
+)
+# Abbreviated form: "BS/MS/PhD" + optional qualifier "(Hons)" + subject in parens or as words
+_DEG_ABBREV = re.compile(
+    r'\b(BS|MS|PhD|BBA|MBA|MPhil|M\.Phil|ADP|DPT|MBBS|EMBA|'
+    r'B\.Sc\.?|M\.Sc\.?|B\.Ed\.?|LL\.B\.?|LLB|Pharm\.?-?D\.?|BA|MA)'
+    r'(?:\s*\((?:Hons?\.?|Honours|Engg?\.?)\))?'
+    r'(?:\s*\(([^)]{3,70})\)|\s+([A-Z][A-Za-z][A-Za-z\s&/-]{1,70}))?',
+    re.IGNORECASE
+)
+_EXEC_MBA = re.compile(r'\bExecutive\s+MBA\b', re.IGNORECASE)
+# Anything that marks the start of a new program or irrelevant section
+_PROG_SPLIT = re.compile(
+    r'\b(?:BS|MS|PhD|BBA|MBA|MPhil|ADP|DPT|EMBA|'
+    r'Bachelor|Master|Doctor|Executive\s+MBA|'
+    r'Morning|Evening|Afternoon|Self.Supporting|Regular|Replica|Weekend|'
+    r'\d+\s*[Yy]ears?)',
+    re.IGNORECASE
+)
+
+
+def _clean_prog(prog):
+    prog = re.sub(
+        r'\s*\(\s*(?:Morning|Afternoon|Evening|Self[- ]Supporting|Regular|Replica|Weekend)\s*\)',
+        '', prog, flags=re.IGNORECASE
+    )
+    prog = re.sub(r'\s+\d+\s*(?:Years?|Yrs?)\b.*$', '', prog, flags=re.IGNORECASE)
+    return prog.strip(' ,;/-')
+
+
+def extract_programs_from_content(content):
+    """Extract degree program names directly from raw content."""
+    text = re.sub(r'&[a-z#\d]+;', ' ', content)
+    text = re.sub(r'\s+', ' ', text)
+    found = set()
+
+    # Full names: "Bachelor of Science (Computer Science)", "Doctor of Philosophy (CS)"
+    for m in _DEG_FULL.finditer(text):
+        found.add(_clean_prog(m.group(0)))
+
+    # Abbreviated: "BS Computer Science", "BS (CS)", "BA (Honours) English"
+    for m in _DEG_ABBREV.finditer(text):
+        abbrev = m.group(1)
+        suffix = m.group(0)[len(abbrev):]           # everything after the abbreviation
+        suffix = _PROG_SPLIT.split(suffix, 1)[0]    # cut at next degree keyword
+        suffix = _clean_prog(suffix).strip()
+        full = f"{abbrev} {suffix}".strip() if suffix else abbrev
+        if len(full) >= 3:
+            found.add(full)
+
+    for _ in _EXEC_MBA.finditer(text):
+        found.add("Executive MBA")
+
+    return sorted(p for p in found if 3 <= len(p) <= 120)
 
 TARGET_URL = os.environ.get('TARGET_URL', 'https://smart-admission-guide.vercel.app/api/universities')
-REPLACE = os.environ.get('REPLACE', 'true').lower() in ('1', 'true', 'yes')
+REPLACE = os.environ.get('REPLACE', 'false').lower() in ('1', 'true', 'yes')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
 # Initialize Claude client (Haiku only - cost-efficient)
@@ -68,6 +125,7 @@ stats = {
     'skipped': 0,
     'corrected_dates': 0,
     'claude_corrected': 0,
+    'programs_extracted': 0,
     'skipped_reasons': {},
 }
 
@@ -164,6 +222,116 @@ Do not explain, just respond with the month or INVALID."""
         return None
 
 
+OPEN_KW = re.compile(
+    r'admission[s]?\s+open|application[s]?\s+open|'
+    r'online\s+admission[s]?\s+open|commencement\s+of\s+admissions?|'
+    r'admission[s]?\s+start|admission[s]?\s+begin|'
+    r'application\s+submission',
+    re.IGNORECASE
+)
+CLOSE_KW = re.compile(
+    r'application[s]?\s+deadline|admission[s]?\s+deadline|'
+    r'online\s+admission\s+deadline|last\s+date|'
+    r'deadline\s+to\s+submit|completion\s+of\s+admission',
+    re.IGNORECASE
+)
+
+
+def extract_all_date_hits(content):
+    """Collect all date matches with text positions; deduplicate by (month, day)."""
+    raw = []
+    for m in re.finditer(pat_mon_day, content):
+        mo, d = m.groups()
+        if is_valid_date(mo, d):
+            raw.append((m.start(), VALID_MONTHS[mo], int(d), f"{mo} {d}"))
+    for m in re.finditer(pat_ord_full, content):
+        d, full = m.groups()
+        ab = FULL_MONTHS.get(full)
+        if ab and is_valid_date(ab, d):
+            raw.append((m.start(), VALID_MONTHS[ab], int(d), f"{ab} {d}"))
+    for m in re.finditer(pat_day_mon, content):
+        d, mo = m.groups()
+        if is_valid_date(mo, d):
+            raw.append((m.start(), VALID_MONTHS[mo], int(d), f"{mo} {d}"))
+    for m in re.finditer(pat_day_full, content):
+        d, full = m.groups()
+        ab = FULL_MONTHS.get(full)
+        if ab and is_valid_date(ab, d):
+            raw.append((m.start(), VALID_MONTHS[ab], int(d), f"{ab} {d}"))
+    for m in re.finditer(pat_full_day, content):
+        full, d = m.groups()
+        ab = FULL_MONTHS.get(full)
+        if ab and is_valid_date(ab, d):
+            raw.append((m.start(), VALID_MONTHS[ab], int(d), f"{ab} {d}"))
+
+    seen = {}
+    for pos, mn, dn, ds in sorted(raw, key=lambda x: x[0]):
+        if (mn, dn) not in seen:
+            seen[(mn, dn)] = (pos, ds)
+    return seen  # {(month_num, day_num): (pos, "Mon DD")}
+
+
+def pick_admission_window(seen, content):
+    """Pick (start_str, end_str) using keyword proximity + chronological fallback."""
+    if not seen:
+        return "", ""
+
+    by_pos = sorted(seen.values(), key=lambda x: x[0])  # [(pos, ds)] by text position
+
+    def nearest(kw_pos, max_dist=150):
+        best, bd = None, max_dist + 1
+        for pos, ds in by_pos:
+            dist = abs(pos - kw_pos)
+            if dist < bd:
+                bd, best = dist, ds
+        return best if bd <= max_dist else None
+
+    def date_key(ds):
+        parts = ds.split()
+        return (VALID_MONTHS[parts[0]], int(parts[1]))
+
+    # 1. Start: first open-keyword match
+    start_str = None
+    for m in OPEN_KW.finditer(content):
+        d = nearest(m.start())
+        if d:
+            start_str = d
+            break
+
+    # 2. Chronological sorted dates (fallback basis)
+    by_date = sorted(seen.items())           # sorted by (month_num, day_num)
+    chron = [ds for _, (_, ds) in by_date]  # "Mon DD" strings in month/day order
+
+    if not start_str:
+        start_str = chron[0]
+
+    # 3. End: collect ALL close-keyword dates, take the latest
+    end_candidates = set()
+    for m in CLOSE_KW.finditer(content):
+        d = nearest(m.start())
+        if d and d != start_str and date_key(d) > date_key(start_str):
+            end_candidates.add(d)
+
+    end_str = max(end_candidates, key=date_key) if end_candidates else None
+
+    # 4. Fallback end when no close keywords found
+    if not end_str and len(chron) >= 2:
+        second = chron[1]
+        sk = date_key(start_str)
+        ek = date_key(second)
+        gap = (ek[0] - sk[0]) * 30 + (ek[1] - sk[1])
+        if gap <= 6:
+            # Consecutive days — find the last date meaningfully after start
+            for ds in reversed(chron):
+                if date_key(ds) > sk:
+                    end_str = ds
+                    break
+        else:
+            end_str = second
+
+    return start_str or "", end_str or ""
+
+
 def process_and_post(input_path='data.json', output_path='clean_data.json'):
     print(f"Reading raw {input_path}...")
     try:
@@ -193,46 +361,15 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
         status = "Upcoming"
 
         # --- Extract Dates ---
-        found_dates = re.findall(date_pattern, content)
-        valid_dates = []
+        date_seen = extract_all_date_hits(content)
+        start_str, end_str = pick_admission_window(date_seen, content)
+        if start_str:
+            start_date = f"{start_str}, 2026"
+        if end_str:
+            end_date = f"{end_str}, 2026"
 
-        for month, day in found_dates:
-            if is_valid_date(month, day):
-                valid_dates.append(f"{month} {day}")
-            else:
-                # Try local correction first
-                corrected_month = correct_month_typo(month)
-                if corrected_month and is_valid_date(corrected_month, day):
-                    valid_dates.append(f"{corrected_month} {day}")
-                    stats['corrected_dates'] += 1
-                    print(f"  🔧 Auto-corrected '{month} {day}' → '{corrected_month} {day}' for {university}")
-                else:
-                    # Try Claude correction as fallback
-                    claude_month = correct_month_with_claude(month, day)
-                    if claude_month and is_valid_date(claude_month, day):
-                        valid_dates.append(f"{claude_month} {day}")
-                        stats['claude_corrected'] += 1
-                        print(f"  🤖 Claude corrected '{month} {day}' → '{claude_month} {day}' for {university}")
-                    else:
-                        print(f"  ⚠️  Could not correct date '{month} {day}' for {university}")
-
-        unique_dates = list(dict.fromkeys(valid_dates))
-
-        if len(unique_dates) >= 2:
-            start_date = f"{unique_dates[0]}, 2026"
-            end_date = f"{unique_dates[1]}, 2026"
-        elif len(unique_dates) == 1:
-            start_date = f"{unique_dates[0]}, 2026"
-
-        # --- Extract Programs ---
-        found_programs = []
-        content_lower = content.lower()
-
-        for prog in target_programs:
-            if prog.lower() in content_lower:
-                found_programs.append(prog)
-
-        programs_string = ", ".join(found_programs) if found_programs else "Program list unavailable"
+        # --- Extract Programs (sent as an array so names with commas survive) ---
+        found_programs = extract_programs_from_content(content)
 
         # --- Clean Details & Status ---
         clean_details = content[:150].replace('\n', ' ').strip() + "..."
@@ -249,14 +386,15 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
             "event_type": category,
             "start_date": start_date,
             "end_date": end_date,
-            "programs_offered": programs_string,
+            "programs_offered": found_programs,
             "status": status,
             "details": clean_details
         }
 
         cleaned_results.append(clean_row)
         stats['saved'] += 1
-        print(f"✅ SAVE [{idx}] {university} ({start_date} → {end_date})")
+        stats['programs_extracted'] += len(found_programs)
+        print(f"✅ SAVE [{idx}] {university} ({start_date} → {end_date}) — {len(found_programs)} program(s)")
 
     final_output = {
         "project": "Smart Admission Guide",
@@ -274,6 +412,7 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
     print(f"Total items processed: {stats['total_items']}")
     print(f"✅ Items saved: {stats['saved']}")
     print(f"❌ Items skipped: {stats['skipped']}")
+    print(f"🎓 Total programs extracted: {stats['programs_extracted']}")
     if stats['corrected_dates'] > 0:
         print(f"🔧 Dates auto-corrected (local): {stats['corrected_dates']}")
     if stats['claude_corrected'] > 0:
@@ -313,12 +452,19 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
         if isinstance(text, dict) and 'inserted_count' in text:
             ic = text.get('inserted_count')
             inserted = text.get('inserted') or []
+            summary = text.get('summary') or {}
             print(f"\n🎉 Data seeding successful!")
-            print(f"   Inserted {ic} university record(s).")
+            print(f"   Inserted/updated {ic} university record(s).")
+            if 'programs_inserted' in summary:
+                print(f"   Programs inserted (new): {summary.get('programs_inserted')}")
             if inserted:
-                print('\n📋 Inserted universities:')
+                print('\n📋 Universities:')
                 for it in inserted:
-                    print(f"   ✓ {it.get('name')} (id={it.get('universityId')})")
+                    pi = it.get('programs_inserted', 0)
+                    pt = it.get('programs_total', 0)
+                    act = it.get('action', 'saved')
+                    print(f"   ✓ {it.get('name')} (id={it.get('universityId')}) "
+                          f"[{act}] — {pi} new / {pt} total program(s)")
         else:
             print('Data seeding successful.')
             print('Response:', text)

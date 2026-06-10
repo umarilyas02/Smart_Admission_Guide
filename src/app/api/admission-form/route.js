@@ -5,8 +5,14 @@ import { query, queryOne, queryMany } from '@/lib/db';
 function getUserId(req) {
   const auth = req.headers.get('authorization') || '';
   const token = auth.replace('Bearer ', '').trim();
-  if (!token) return null;
+  if (!token) {
+    console.log('No auth header provided');
+    return null;
+  }
   const decoded = verifyToken(token);
+  if (!decoded) {
+    console.log('Token verification failed for token:', token.substring(0, 20) + '...');
+  }
   return decoded?.userId || null;
 }
 

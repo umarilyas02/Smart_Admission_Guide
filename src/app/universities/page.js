@@ -1,0 +1,447 @@
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import { MapPin, Globe, Calendar, SlidersHorizontal, X, ChevronDown, Search } from "lucide-react";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import ChatbotWidget from "@/components/ChatbotWidget";
+
+function FilterChip({ label, onRemove }) {
+  return (
+    <span className="inline-flex items-center gap-1 bg-blue-100 text-primary px-3 py-1 rounded-full text-sm font-medium">
+      {label}
+      <button onClick={onRemove} className="hover:text-red-500 transition">
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </span>
+  );
+}
+
+function SelectFilter({ label, options, value, onChange, placeholder }) {
+  return (
+    <div className="relative">
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+        {label}
+      </label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+        >
+          <option value="">{placeholder}</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+      </div>
+    </div>
+  );
+}
+
+export default function UniversitiesPage() {
+  const [universities, setUniversities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filter state
+  const [programFilter, setProgramFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [feeMin, setFeeMin] = useState("");
+  const [feeMax, setFeeMax] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedCards, setExpandedCards] = useState(() => new Set());
+
+  const toggleExpanded = (id) =>
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  useEffect(() => {
+    console.log("[Universities] Fetching /api/universities …");
+    fetch("/api/universities")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load universities");
+        return res.json();
+      })
+      .then((data) => {
+        const list = data.universities || [];
+        const totalPrograms = list.reduce((sum, u) => sum + (u.programs?.length || 0), 0);
+        console.log(
+          `[Universities] Loaded ${list.length} universities, ${totalPrograms} programs total`
+        );
+        list.forEach((u) =>
+          console.log(
+            `  • ${u.name}: ${u.programs?.length || 0} program(s), ${u.events?.length || 0} event(s)`
+          )
+        );
+        setUniversities(list);
+      })
+      .catch((err) => {
+        console.error("[Universities] Load failed:", err);
+        setError(err.message);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Derive unique filter options from data
+  const allPrograms = useMemo(() => {
+    const set = new Set();
+    universities.forEach((u) => u.programs?.forEach((p) => set.add(p.name)));
+    return [...set].sort();
+  }, [universities]);
+
+  const allCities = useMemo(() => {
+    const set = new Set();
+    universities.forEach((u) => { if (u.location) set.add(u.location); });
+    return [...set].sort();
+  }, [universities]);
+
+  const hasFeeData = useMemo(
+    () => universities.some((u) => u.programs?.some((p) => p.fee != null && p.fee !== "")),
+    [universities]
+  );
+
+  // Apply filters
+  const filtered = useMemo(() => {
+    return universities.filter((u) => {
+      // Text search
+      if (searchQuery && !u.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+
+      // City filter
+      if (cityFilter && u.location !== cityFilter) return false;
+
+      // Program filter
+      if (programFilter) {
+        const match = u.programs?.some((p) =>
+          p.name.toLowerCase().includes(programFilter.toLowerCase())
+        );
+        if (!match) return false;
+      }
+
+      // Fee range filter — university qualifies if ANY program falls in range
+      if (feeMin !== "" || feeMax !== "") {
+        const min = feeMin !== "" ? Number(feeMin) : -Infinity;
+        const max = feeMax !== "" ? Number(feeMax) : Infinity;
+        const hasMatch = u.programs?.some((p) => {
+          const fee = Number(p.fee);
+          if (!p.fee || isNaN(fee)) return false;
+          return fee >= min && fee <= max;
+        });
+        if (!hasMatch) return false;
+      }
+
+      return true;
+    });
+  }, [universities, searchQuery, cityFilter, programFilter, feeMin, feeMax]);
+
+  // Active filter chips
+  const activeFilters = [
+    programFilter && { key: "program", label: `Program: ${programFilter}`, clear: () => setProgramFilter("") },
+    cityFilter && { key: "city", label: `City: ${cityFilter}`, clear: () => setCityFilter("") },
+    (feeMin !== "" || feeMax !== "") && {
+      key: "fee",
+      label: `Fee: PKR ${feeMin || "0"} – ${feeMax || "∞"}`,
+      clear: () => { setFeeMin(""); setFeeMax(""); },
+    },
+  ].filter(Boolean);
+
+  const clearAll = () => {
+    setProgramFilter("");
+    setCityFilter("");
+    setFeeMin("");
+    setFeeMax("");
+    setSearchQuery("");
+  };
+
+  return (
+    <div className="bg-gray-50 min-h-screen font-inter">
+      <Navbar />
+
+      <main className="min-h-screen py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+              Universities in Pakistan
+            </h1>
+            <p className="text-gray-500 text-base">
+              Browse {universities.length} institutions — filter by program, city, or fee range.
+            </p>
+          </div>
+
+          {/* Search + Filter toggle row */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search university name…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary transition"
+              />
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition ${
+                showFilters || activeFilters.length > 0
+                  ? "bg-primary text-white border-primary"
+                  : "bg-white text-gray-700 border-gray-200 hover:border-primary hover:text-primary"
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filters
+              {activeFilters.length > 0 && (
+                <span className="bg-white text-primary rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold leading-none">
+                  {activeFilters.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Filter panel */}
+          {showFilters && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <SelectFilter
+                  label="Program"
+                  options={allPrograms}
+                  value={programFilter}
+                  onChange={setProgramFilter}
+                  placeholder="All programs"
+                />
+                <SelectFilter
+                  label="City"
+                  options={allCities}
+                  value={cityFilter}
+                  onChange={setCityFilter}
+                  placeholder="All cities"
+                />
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                    Fee — Min (PKR)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 50000"
+                    value={feeMin}
+                    onChange={(e) => setFeeMin(e.target.value)}
+                    disabled={!hasFeeData}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                    Fee — Max (PKR)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 200000"
+                    value={feeMax}
+                    onChange={(e) => setFeeMax(e.target.value)}
+                    disabled={!hasFeeData}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+              {!hasFeeData && (
+                <p className="text-xs text-gray-400 mt-3">Fee data not yet available for these universities.</p>
+              )}
+            </div>
+          )}
+
+          {/* Active filter chips */}
+          {activeFilters.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              <span className="text-sm text-gray-500">Active:</span>
+              {activeFilters.map((f) => (
+                <FilterChip key={f.key} label={f.label} onRemove={f.clear} />
+              ))}
+              <button
+                onClick={clearAll}
+                className="text-sm text-red-500 hover:text-red-700 font-medium transition"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {/* Result count */}
+          {!loading && !error && (
+            <p className="text-sm text-gray-400 mb-6">
+              Showing <span className="font-semibold text-gray-700">{filtered.length}</span>
+              {" "}of {universities.length} universities
+            </p>
+          )}
+
+          {/* States */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-gray-400 text-sm">Loading universities…</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-center py-20 text-red-500">{error}</div>
+          )}
+
+          {!loading && !error && filtered.length === 0 && (
+            <div className="text-center py-24">
+              <p className="text-gray-400 text-lg mb-2">No universities match your filters.</p>
+              <button onClick={clearAll} className="text-primary font-medium hover:underline text-sm">
+                Clear filters
+              </button>
+            </div>
+          )}
+
+          {/* Grid */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {filtered.map((uni) => {
+              const nextEvent =
+                uni.events?.find((e) => e.status?.toLowerCase() === "open") || uni.events?.[0];
+
+              // For fee display: show range across programs
+              const fees = uni.programs
+                ?.map((p) => Number(p.fee))
+                .filter((f) => !isNaN(f) && f > 0);
+              const feeRange =
+                fees?.length > 0
+                  ? fees.length === 1
+                    ? `PKR ${fees[0].toLocaleString()}`
+                    : `PKR ${Math.min(...fees).toLocaleString()} – ${Math.max(...fees).toLocaleString()}`
+                  : null;
+
+              // Highlighted programs if program filter active; otherwise respect
+              // the per-card expand toggle (collapsed shows the first 5).
+              const isExpanded = expandedCards.has(uni.id);
+              const totalPrograms = uni.programs?.length || 0;
+              const displayPrograms = programFilter
+                ? uni.programs?.filter((p) =>
+                    p.name.toLowerCase().includes(programFilter.toLowerCase())
+                  )
+                : isExpanded
+                ? uni.programs
+                : uni.programs?.slice(0, 5);
+
+              return (
+                <div
+                  key={uni.id}
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-gray-200 transition-all"
+                >
+                  {/* Card header */}
+                  <div className="flex justify-between items-start mb-3 gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-gray-900 leading-tight">{uni.name}</h3>
+                      {uni.location && (
+                        <p className="text-gray-400 text-sm flex items-center gap-1 mt-1">
+                          <MapPin className="w-3.5 h-3.5 shrink-0" />
+                          {uni.location}
+                        </p>
+                      )}
+                    </div>
+                    {nextEvent && (
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                          nextEvent.status?.toLowerCase() === "open"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-blue-100 text-primary"
+                        }`}
+                      >
+                        {nextEvent.status || nextEvent.event_type}
+                      </span>
+                    )}
+                  </div>
+
+                  {uni.description && (
+                    <p className="text-gray-500 text-sm mb-4 line-clamp-2 leading-relaxed">
+                      {uni.description}
+                    </p>
+                  )}
+
+                  {/* Programs */}
+                  {displayPrograms?.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Programs{totalPrograms > 0 ? ` (${totalPrograms})` : ""}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {displayPrograms.map((prog) => (
+                          <span
+                            key={prog.id}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                              programFilter &&
+                              prog.name.toLowerCase().includes(programFilter.toLowerCase())
+                                ? "bg-primary text-white"
+                                : "bg-blue-50 text-primary"
+                            }`}
+                          >
+                            {prog.name}
+                          </span>
+                        ))}
+                        {!programFilter && totalPrograms > 5 && (
+                          <button
+                            onClick={() => toggleExpanded(uni.id)}
+                            className="px-2.5 py-1 rounded-full text-xs font-medium text-primary bg-gray-100 hover:bg-gray-200 transition"
+                          >
+                            {isExpanded ? "Show less" : `+${totalPrograms - 5} more`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fee + event row */}
+                  <div className="flex items-center gap-4 mb-4 text-sm text-gray-500">
+                    {feeRange && (
+                      <span className="font-medium text-gray-700">{feeRange}</span>
+                    )}
+                    {nextEvent?.start_date && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        {nextEvent.event_type}: {nextEvent.start_date}
+                        {nextEvent.end_date ? ` – ${nextEvent.end_date}` : ""}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <a
+                      href="/admission-chance"
+                      className="flex-1 text-center bg-primary text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition font-medium text-sm"
+                    >
+                      Check Chances
+                    </a>
+                    {uni.website && (
+                      <a
+                        href={uni.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition text-sm"
+                      >
+                        <Globe className="w-4 h-4" />
+                        Website
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+      <ChatbotWidget />
+    </div>
+  );
+}
