@@ -17,6 +17,14 @@ async function ensureEventsTable() {
   `);
 }
 
+// Make sure the columns the scraper now sends exist on already-deployed
+// databases (the original universities table predates fee_structure_url).
+async function ensureUniversityColumns() {
+  await query(
+    'ALTER TABLE universities ADD COLUMN IF NOT EXISTS fee_structure_url VARCHAR(500)'
+  );
+}
+
 function parseDate(str) {
   if (!str) return null;
   const value = String(str).trim();
@@ -42,6 +50,10 @@ function validateItem(it) {
   if (!name) errors.push('missing university name');
   if (it.event_type && typeof it.event_type !== 'string') errors.push('invalid event_type');
   if (it.status && typeof it.status !== 'string') errors.push('invalid status');
+  if (it.location && typeof it.location !== 'string') errors.push('invalid location');
+  if (it.fee_structure_url && typeof it.fee_structure_url !== 'string') {
+    errors.push('invalid fee_structure_url');
+  }
   // programs_offered can be empty but if present must be a string OR an array of strings
   if (
     it.programs_offered &&
@@ -100,6 +112,7 @@ export async function POST(req) {
     }
 
     await ensureEventsTable();
+    await ensureUniversityColumns();
 
     if (replace) {
       await clearUniversityData();
@@ -122,6 +135,8 @@ export async function POST(req) {
       }
 
       const name = (it.university_name || it.name || '').trim();
+      const location = (it.location || '').trim() || null;
+      const feeStructureUrl = (it.fee_structure_url || '').trim() || null;
       let universityId = await findUniversityIdByName(name);
       let action = 'created';
 
@@ -130,17 +145,19 @@ export async function POST(req) {
           `UPDATE universities
            SET description = COALESCE($2, description),
                website = COALESCE($3, website),
+               location = COALESCE($4, location),
+               fee_structure_url = COALESCE($5, fee_structure_url),
                updated_at = NOW()
            WHERE id = $1`,
-          [universityId, it.details || null, it.website || null]
+          [universityId, it.details || null, it.website || null, location, feeStructureUrl]
         );
         action = 'updated';
       } else {
         const res = await query(
-          `INSERT INTO universities(name, description, website, created_at)
-           VALUES($1,$2,$3,NOW())
+          `INSERT INTO universities(name, description, website, location, fee_structure_url, created_at)
+           VALUES($1,$2,$3,$4,$5,NOW())
            RETURNING id`,
-          [name, it.details || null, it.website || null]
+          [name, it.details || null, it.website || null, location, feeStructureUrl]
         );
         universityId = res.rows[0].id;
       }
@@ -256,7 +273,7 @@ export async function POST(req) {
 export async function GET() {
   try {
     const universities = await queryMany(
-      `SELECT u.id, u.name, u.location, u.website, u.description, u.created_at
+      `SELECT u.id, u.name, u.location, u.website, u.fee_structure_url, u.description, u.created_at
        FROM universities u
        ORDER BY u.name`,
       []

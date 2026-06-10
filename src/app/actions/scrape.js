@@ -62,7 +62,10 @@ export async function runScrape() {
   const { code, stdout, stderr } = await runPython(scriptPath, {
     ...process.env,
     TARGET_URL: targetUrl,
-    REPLACE: 'true',
+    // REPLACE=false → upsert by name (UPDATE existing rows, INSERT new ones).
+    // Avoids the destructive DELETE-all-then-recreate path, so university IDs
+    // stay stable across scrapes (bookmarks / "View Programs" links don't break).
+    REPLACE: 'false',
   });
 
   const success = code === 0;

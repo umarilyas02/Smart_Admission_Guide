@@ -52,7 +52,6 @@ export default function Navbar() {
           </button>
 
           <nav className="hidden md:flex gap-6 items-center">
-            <Link href="/" className="text-gray-700 hover:text-primary transition">Home</Link>
             <Link href="/about" className="text-gray-700 hover:text-primary transition">About</Link>
             <Link href="/universities" className="text-gray-700 hover:text-primary transition">Universities</Link>
             <Link href="/quiz" className="text-gray-700 hover:text-primary transition">Quiz</Link>
@@ -78,7 +77,6 @@ export default function Navbar() {
 
         {mobileMenuOpen && (
           <nav className="md:hidden mt-4 pb-4 space-y-3">
-            <Link href="/" className="block text-gray-700 hover:text-primary transition py-2">Home</Link>
             <Link href="/about" className="block text-gray-700 hover:text-primary transition py-2">About</Link>
             <Link href="/universities" className="block text-gray-700 hover:text-primary transition py-2">Universities</Link>
             <Link href="/quiz" className="block text-gray-700 hover:text-primary transition py-2">Quiz</Link>

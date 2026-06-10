@@ -120,11 +120,38 @@ python scripts/auto_post_clean_data.py
 
 | File | Purpose |
 |------|---------|
-| `auto_post_clean_data.py` | Main processor with date correction logic |
+| `cloudflare-worker.js` | The scraper deployed to Cloudflare. Declares each university's `location` + fee-structure `feeUrl` and emits them as separate fields alongside `content`. |
+| `auto_post_clean_data.py` | Main processor: dates, programs, **location**, **fee link**, then API push |
+| `scrape_locations_fees.py` | Focused tool that extracts/pushes **only** `location` + `fee_structure_url` (replace=false, leaves events/programs intact). `--dry-run` to preview. |
 | `requirements.txt` | Python dependencies |
 | `SETUP_CLAUDE.md` | Detailed setup guide for Claude API |
 | `TEST_CLAUDE.md` | Testing guide with examples |
 | `README.md` | This file |
+
+## Location & Fee-Structure Links
+
+The worker declares each campus `location` and a canonical fee-structure
+`feeUrl` in its target config, and emits them as `location` /
+`fee_structure_url` fields per result. They are declared (not regex-scraped)
+because the worker strips every `<a href>` tag, so links in markup never survive
+into `content`, and a clean "City" is hard to isolate from combined page text.
+
+`auto_post_clean_data.py` prefers those worker fields and falls back to
+recovering them from `content` (campus city from the name's parenthetical /
+known-city list; a bare fee URL if one appears as plain text). Both flow into
+the `universities` table (`location`, `fee_structure_url`) via the API.
+
+To refresh **only** these two fields without re-touching admission events or
+programs:
+
+```bash
+python scripts/scrape_locations_fees.py --dry-run   # preview
+python scripts/scrape_locations_fees.py             # extract + post
+```
+
+> After deploying the updated worker, re-run the schema (`node scripts/apply-schema.js`)
+> or just POST once — the API auto-runs `ALTER TABLE ... ADD COLUMN IF NOT EXISTS
+> fee_structure_url` so existing databases pick up the new column.
 
 ## How It Works
 

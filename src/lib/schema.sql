@@ -78,10 +78,15 @@ CREATE TABLE IF NOT EXISTS universities (
   type VARCHAR(50),
   ranking INT,
   website VARCHAR(255),
+  fee_structure_url VARCHAR(500),
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Bring already-deployed databases up to date (CREATE TABLE IF NOT EXISTS
+-- above won't add columns to a table that already exists).
+ALTER TABLE universities ADD COLUMN IF NOT EXISTS fee_structure_url VARCHAR(500);
 
 CREATE INDEX IF NOT EXISTS idx_universities_name ON universities(name);
 CREATE INDEX IF NOT EXISTS idx_universities_location ON universities(location);

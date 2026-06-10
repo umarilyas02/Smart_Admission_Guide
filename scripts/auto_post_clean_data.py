@@ -102,6 +102,59 @@ def extract_programs_from_content(content):
 
     return sorted(p for p in found if 3 <= len(p) <= 120)
 
+
+# 3. Location + fee-structure-link extraction
+#
+# The worker emits `location` and `fee_structure_url` directly (preferred).
+# These fallbacks recover them from raw `content` when an older worker payload
+# is replayed, so the pipeline degrades gracefully instead of dropping fields.
+
+# Known campus cities — used to recover a location from the university name or
+# free text when the worker didn't provide one.
+_KNOWN_CITIES = [
+    'Islamabad', 'Rawalpindi', 'Lahore', 'Karachi', 'Faisalabad', 'Sialkot',
+    'Multan', 'Peshawar', 'Quetta', 'Chiniot', 'Gujranwala', 'Sargodha',
+    'Bahawalpur', 'Abbottabad', 'Hyderabad', 'Sukkur', 'Jhelum', 'Taxila',
+    'Wah', 'Mardan', 'Swat', 'Gujrat', 'Sahiwal',
+]
+_CITY_RE = re.compile(r'\b(' + '|'.join(_KNOWN_CITIES) + r')\b', re.IGNORECASE)
+
+# A fee page mentioned as a bare URL inside the text (rare — most live in
+# stripped <a href> markup, hence the worker passes the link explicitly).
+_FEE_URL_RE = re.compile(
+    r'https?://[^\s"\'<>]*fee[^\s"\'<>]*', re.IGNORECASE
+)
+
+
+def extract_location_from_content(name, content):
+    """Best-effort campus city: prefer the name (esp. its parenthetical campus
+    tag like '(Lahore Campus)'), then fall back to the free text."""
+    if name:
+        # A parenthetical usually names the *actual* campus, which can differ
+        # from the institution's headquarters mentioned earlier in the name
+        # (e.g. 'COMSATS ... Islamabad (Lahore Campus)' -> Lahore).
+        paren = re.search(r'\(([^)]*)\)', name)
+        if paren:
+            m = _CITY_RE.search(paren.group(1))
+            if m:
+                return m.group(1).title()
+        m = _CITY_RE.search(name)
+        if m:
+            return m.group(1).title()  # normalise: 'lahore' -> 'Lahore'
+    if content:
+        m = _CITY_RE.search(content)
+        if m:
+            return m.group(1).title()
+    return ""
+
+
+def extract_fee_url_from_content(content):
+    """Recover a fee-structure URL if one appears as plain text in content."""
+    if not content:
+        return ""
+    m = _FEE_URL_RE.search(content)
+    return m.group(0) if m else ""
+
 TARGET_URL = os.environ.get('TARGET_URL', 'https://smart-admission-guide.vercel.app/api/universities')
 REPLACE = os.environ.get('REPLACE', 'false').lower() in ('1', 'true', 'yes')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
@@ -126,6 +179,9 @@ stats = {
     'corrected_dates': 0,
     'claude_corrected': 0,
     'programs_extracted': 0,
+    'locations_found': 0,
+    'fee_links_found': 0,
+    'undeclared': 0,
     'skipped_reasons': {},
 }
 
@@ -371,15 +427,28 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
         # --- Extract Programs (sent as an array so names with commas survive) ---
         found_programs = extract_programs_from_content(content)
 
+        # --- Location: prefer the worker-provided field, fall back to text ---
+        location = str(row.get('location', '')).strip()
+        location_source = 'worker' if location else ''
+        if not location:
+            location = extract_location_from_content(university, content)
+            location_source = 'content' if location else ''
+
+        # --- Fee structure link: prefer worker field, fall back to text ---
+        fee_structure_url = str(row.get('fee_structure_url', '')).strip()
+        fee_source = 'worker' if fee_structure_url else ''
+        if not fee_structure_url:
+            fee_structure_url = extract_fee_url_from_content(content)
+            fee_source = 'content' if fee_structure_url else ''
+
         # --- Clean Details & Status ---
         clean_details = content[:150].replace('\n', ' ').strip() + "..."
 
+        # No admission dates parsed — keep the university anyway (flagged) rather
+        # than dropping it, so it still shows up listed as "not announced yet".
         if not start_date:
-            status = "Dates Pending"
-            reason = "No valid dates found"
-            log_skipped(university, reason)
-            print(f"❌ SKIP [{idx}] {university}: {reason}")
-            continue
+            status = "Not Declared"
+            stats['undeclared'] += 1
 
         clean_row = {
             "university_name": university,
@@ -387,6 +456,8 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
             "start_date": start_date,
             "end_date": end_date,
             "programs_offered": found_programs,
+            "location": location,
+            "fee_structure_url": fee_structure_url,
             "status": status,
             "details": clean_details
         }
@@ -394,7 +465,25 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
         cleaned_results.append(clean_row)
         stats['saved'] += 1
         stats['programs_extracted'] += len(found_programs)
-        print(f"✅ SAVE [{idx}] {university} ({start_date} → {end_date}) — {len(found_programs)} program(s)")
+        if location:
+            stats['locations_found'] += 1
+        if fee_structure_url:
+            stats['fee_links_found'] += 1
+        loc_label = location or "no location"
+        fee_label = "fee link ✓" if fee_structure_url else "no fee link"
+        date_label = f"{start_date} → {end_date}" if start_date else "dates not declared yet"
+        print(f"✅ SAVE [{idx}] {university} ({date_label}) — "
+              f"{len(found_programs)} program(s), {loc_label}, {fee_label}")
+
+        # Detailed location + fee-structure logs (value + where it came from).
+        if location:
+            print(f"   📍 Location: {location} (from {location_source})")
+        else:
+            print("   📍 Location: not found")
+        if fee_structure_url:
+            print(f"   💰 Fee structure: {fee_structure_url} (from {fee_source})")
+        else:
+            print("   💰 Fee structure: not available")
 
     final_output = {
         "project": "Smart Admission Guide",
@@ -411,8 +500,11 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
     print('=' * 80)
     print(f"Total items processed: {stats['total_items']}")
     print(f"✅ Items saved: {stats['saved']}")
+    print(f"📋 Saved without declared dates: {stats['undeclared']}")
     print(f"❌ Items skipped: {stats['skipped']}")
     print(f"🎓 Total programs extracted: {stats['programs_extracted']}")
+    print(f"📍 Locations resolved: {stats['locations_found']}")
+    print(f"💰 Fee-structure links captured: {stats['fee_links_found']}")
     if stats['corrected_dates'] > 0:
         print(f"🔧 Dates auto-corrected (local): {stats['corrected_dates']}")
     if stats['claude_corrected'] > 0:

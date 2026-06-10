@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { MapPin, Globe, Calendar, SlidersHorizontal, X, ChevronDown, Search } from "lucide-react";
+import { MapPin, Globe, Calendar, SlidersHorizontal, X, ChevronDown, Search, Receipt } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -49,6 +49,7 @@ export default function UniversitiesPage() {
   // Filter state
   const [programFilter, setProgramFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("");
+
   const [feeMin, setFeeMin] = useState("");
   const [feeMax, setFeeMax] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -97,7 +98,10 @@ export default function UniversitiesPage() {
 
   const allCities = useMemo(() => {
     const set = new Set();
-    universities.forEach((u) => { if (u.location) set.add(u.location); });
+    universities.forEach((u) => {
+      const city = u.location?.trim();
+      if (city) set.add(city);
+    });
     return [...set].sort();
   }, [universities]);
 
@@ -113,7 +117,7 @@ export default function UniversitiesPage() {
       if (searchQuery && !u.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
 
       // City filter
-      if (cityFilter && u.location !== cityFilter) return false;
+      if (cityFilter && u.location?.trim() !== cityFilter) return false;
 
       // Program filter
       if (programFilter) {
@@ -141,8 +145,8 @@ export default function UniversitiesPage() {
 
   // Active filter chips
   const activeFilters = [
-    programFilter && { key: "program", label: `Program: ${programFilter}`, clear: () => setProgramFilter("") },
     cityFilter && { key: "city", label: `City: ${cityFilter}`, clear: () => setCityFilter("") },
+    programFilter && { key: "program", label: `Program: ${programFilter}`, clear: () => setProgramFilter("") },
     (feeMin !== "" || feeMax !== "") && {
       key: "fee",
       label: `Fee: PKR ${feeMin || "0"} – ${feeMax || "∞"}`,
@@ -151,8 +155,8 @@ export default function UniversitiesPage() {
   ].filter(Boolean);
 
   const clearAll = () => {
-    setProgramFilter("");
     setCityFilter("");
+    setProgramFilter("");
     setFeeMin("");
     setFeeMax("");
     setSearchQuery("");
@@ -171,7 +175,7 @@ export default function UniversitiesPage() {
               Universities in Pakistan
             </h1>
             <p className="text-gray-500 text-base">
-              Browse {universities.length} institutions — filter by program, city, or fee range.
+              Browse {universities.length} institutions — filter by program or fee range.
             </p>
           </div>
 
@@ -210,18 +214,18 @@ export default function UniversitiesPage() {
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <SelectFilter
-                  label="Program"
-                  options={allPrograms}
-                  value={programFilter}
-                  onChange={setProgramFilter}
-                  placeholder="All programs"
-                />
-                <SelectFilter
                   label="City"
                   options={allCities}
                   value={cityFilter}
                   onChange={setCityFilter}
                   placeholder="All cities"
+                />
+                <SelectFilter
+                  label="Program"
+                  options={allPrograms}
+                  value={programFilter}
+                  onChange={setProgramFilter}
+                  placeholder="All programs"
                 />
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
@@ -416,11 +420,23 @@ export default function UniversitiesPage() {
                   {/* Actions */}
                   <div className="flex gap-2">
                     <a
-                      href="/admission-chance"
+                      href={`/universities/${uni.id}`}
                       className="flex-1 text-center bg-primary text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition font-medium text-sm"
                     >
-                      Check Chances
+                      View Programs
                     </a>
+                    {uni.fee_structure_url && (
+                      <a
+                        href={uni.fee_structure_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition text-sm"
+                        title="View fee structure"
+                      >
+                        <Receipt className="w-4 h-4" />
+                        Fees
+                      </a>
+                    )}
                     {uni.website && (
                       <a
                         href={uni.website}
