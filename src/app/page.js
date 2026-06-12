@@ -49,7 +49,7 @@ function ToolCard({ icon: Icon, title, description, href, cta, gated, isLoggedIn
 }
 
 const stats = [
-  { icon: Building2,     value: "30+",    label: "Universities" },
+  { icon: Building2,     value: "10+",    label: "Universities" },
   { icon: GraduationCap, value: "100+",   label: "Programs" },
   { icon: Brain,         value: "AI",     label: "Powered" },
   { icon: CheckCircle,   value: "Free",   label: "To Get Started" },
