@@ -549,7 +549,7 @@ export default function QuizPage() {
                 Retake Quiz
               </button>
               <a
-                href="/recommendation"
+                href="/universities"
                 className="bg-gray-100 text-gray-700 px-6 py-2.5 rounded-xl hover:bg-gray-200 transition font-medium"
               >
                 View Universities

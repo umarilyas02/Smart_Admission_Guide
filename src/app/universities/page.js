@@ -49,9 +49,6 @@ export default function UniversitiesPage() {
   // Filter state
   const [programFilter, setProgramFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("");
-
-  const [feeMin, setFeeMin] = useState("");
-  const [feeMax, setFeeMax] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCards, setExpandedCards] = useState(() => new Set());
 
@@ -105,11 +102,6 @@ export default function UniversitiesPage() {
     return [...set].sort();
   }, [universities]);
 
-  const hasFeeData = useMemo(
-    () => universities.some((u) => u.programs?.some((p) => p.fee != null && p.fee !== "")),
-    [universities]
-  );
-
   // Apply filters
   const filtered = useMemo(() => {
     return universities.filter((u) => {
@@ -127,38 +119,19 @@ export default function UniversitiesPage() {
         if (!match) return false;
       }
 
-      // Fee range filter — university qualifies if ANY program falls in range
-      if (feeMin !== "" || feeMax !== "") {
-        const min = feeMin !== "" ? Number(feeMin) : -Infinity;
-        const max = feeMax !== "" ? Number(feeMax) : Infinity;
-        const hasMatch = u.programs?.some((p) => {
-          const fee = Number(p.fee);
-          if (!p.fee || isNaN(fee)) return false;
-          return fee >= min && fee <= max;
-        });
-        if (!hasMatch) return false;
-      }
-
       return true;
     });
-  }, [universities, searchQuery, cityFilter, programFilter, feeMin, feeMax]);
+  }, [universities, searchQuery, cityFilter, programFilter]);
 
   // Active filter chips
   const activeFilters = [
     cityFilter && { key: "city", label: `City: ${cityFilter}`, clear: () => setCityFilter("") },
     programFilter && { key: "program", label: `Program: ${programFilter}`, clear: () => setProgramFilter("") },
-    (feeMin !== "" || feeMax !== "") && {
-      key: "fee",
-      label: `Fee: PKR ${feeMin || "0"} – ${feeMax || "∞"}`,
-      clear: () => { setFeeMin(""); setFeeMax(""); },
-    },
   ].filter(Boolean);
 
   const clearAll = () => {
     setCityFilter("");
     setProgramFilter("");
-    setFeeMin("");
-    setFeeMax("");
     setSearchQuery("");
   };
 
@@ -175,7 +148,7 @@ export default function UniversitiesPage() {
               Universities in Pakistan
             </h1>
             <p className="text-gray-500 text-base">
-              Browse {universities.length} institutions — filter by program or fee range.
+              Browse {universities.length} institutions — filter by city or program.
             </p>
           </div>
 
@@ -212,7 +185,7 @@ export default function UniversitiesPage() {
           {/* Filter panel */}
           {showFilters && (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <SelectFilter
                   label="City"
                   options={allCities}
@@ -227,38 +200,7 @@ export default function UniversitiesPage() {
                   onChange={setProgramFilter}
                   placeholder="All programs"
                 />
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Fee — Min (PKR)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 50000"
-                    value={feeMin}
-                    onChange={(e) => setFeeMin(e.target.value)}
-                    disabled={!hasFeeData}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Fee — Max (PKR)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 200000"
-                    value={feeMax}
-                    onChange={(e) => setFeeMax(e.target.value)}
-                    disabled={!hasFeeData}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  />
-                </div>
               </div>
-              {!hasFeeData && (
-                <p className="text-xs text-gray-400 mt-3">Fee data not yet available for these universities.</p>
-              )}
             </div>
           )}
 
