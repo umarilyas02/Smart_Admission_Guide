@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
+import ValidatedInput from "@/components/ValidatedInput";
 
 export default function AdminNotifications() {
   const router = useRouter();
@@ -167,53 +168,33 @@ export default function AdminNotifications() {
                 Create New Notification
               </h2>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-gray-700 mb-2">Title</label>
-                  <input
-                    type="text"
-                    value={newNotification.title}
-                    onChange={(e) =>
-                      setNewNotification({
-                        ...newNotification,
-                        title: e.target.value,
-                      })
-                    }
-                    placeholder="Enter notification title"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-2">Message</label>
-                  <textarea
-                    value={newNotification.message}
-                    onChange={(e) =>
-                      setNewNotification({
-                        ...newNotification,
-                        message: e.target.value,
-                      })
-                    }
-                    placeholder="Enter notification message"
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-2">Type</label>
-                  <select
-                    value={newNotification.type}
-                    onChange={(e) =>
-                      setNewNotification({
-                        ...newNotification,
-                        type: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  >
-                    <option value="info">Info</option>
-                    <option value="success">Success</option>
-                    <option value="warning">Warning</option>
-                  </select>
-                </div>
+                <ValidatedInput
+                  type="text"
+                  label="Title"
+                  value={newNotification.title}
+                  onChange={(e) => setNewNotification({ ...newNotification, title: e.target.value })}
+                  placeholder="Enter notification title"
+                  required
+                />
+                <ValidatedInput
+                  type="textarea"
+                  label="Message"
+                  value={newNotification.message}
+                  onChange={(e) => setNewNotification({ ...newNotification, message: e.target.value })}
+                  placeholder="Enter notification message"
+                  rows={3}
+                  required
+                />
+                <ValidatedInput
+                  type="select"
+                  label="Type"
+                  value={newNotification.type}
+                  onChange={(e) => setNewNotification({ ...newNotification, type: e.target.value })}
+                >
+                  <option value="info">Info</option>
+                  <option value="success">Success</option>
+                  <option value="warning">Warning</option>
+                </ValidatedInput>
               </div>
               <div className="flex gap-3 mt-6">
                 <button

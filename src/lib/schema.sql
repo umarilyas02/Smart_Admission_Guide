@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS universities (
 -- Bring already-deployed databases up to date (CREATE TABLE IF NOT EXISTS
 -- above won't add columns to a table that already exists).
 ALTER TABLE universities ADD COLUMN IF NOT EXISTS fee_structure_url VARCHAR(500);
+ALTER TABLE students ADD COLUMN IF NOT EXISTS test_type VARCHAR(50);
 
 CREATE INDEX IF NOT EXISTS idx_universities_name ON universities(name);
 CREATE INDEX IF NOT EXISTS idx_universities_location ON universities(location);

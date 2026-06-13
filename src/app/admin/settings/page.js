@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
+import ValidatedInput from "@/components/ValidatedInput";
 
 export default function AdminSettings() {
   const router = useRouter();
@@ -72,53 +73,33 @@ export default function AdminSettings() {
             </h2>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={adminInfo.name}
-                  onChange={(e) =>
-                    setAdminInfo({ ...adminInfo, name: e.target.value })
-                  }
-                  placeholder="Admin Name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
+              <ValidatedInput
+                type="name"
+                label="Name"
+                value={adminInfo.name}
+                onChange={(e) => setAdminInfo({ ...adminInfo, name: e.target.value })}
+                placeholder="Admin Name"
+                required
+              />
 
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={adminInfo.email}
-                  onChange={(e) =>
-                    setAdminInfo({ ...adminInfo, email: e.target.value })
-                  }
-                  placeholder="admin@example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
+              <ValidatedInput
+                type="email"
+                label="Email"
+                value={adminInfo.email}
+                onChange={(e) => setAdminInfo({ ...adminInfo, email: e.target.value })}
+                placeholder="admin@example.com"
+                required
+              />
 
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  value={adminInfo.password}
-                  onChange={(e) =>
-                    setAdminInfo({ ...adminInfo, password: e.target.value })
-                  }
-                  placeholder="Leave blank to keep current password"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Leave blank if you don&apos;t want to change your password
-                </p>
-              </div>
+              <ValidatedInput
+                type="password"
+                label="New Password"
+                value={adminInfo.password}
+                onChange={(e) => setAdminInfo({ ...adminInfo, password: e.target.value })}
+                placeholder="Leave blank to keep current password"
+                hint="Leave blank if you don't want to change your password"
+                showPasswordStrength
+              />
 
               <button
                 onClick={handleSave}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+import ValidatedInput from "@/components/ValidatedInput";
 
 export default function UniversitiesManagement() {
   const router = useRouter();
@@ -130,48 +131,31 @@ export default function UniversitiesManagement() {
                 Add New University
               </h2>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-gray-700 mb-2">
-                    University Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newUniversity.name}
-                    onChange={(e) =>
-                      setNewUniversity({ ...newUniversity, name: e.target.value })
-                    }
-                    placeholder="Enter university name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-2">Location</label>
-                  <input
-                    type="text"
-                    value={newUniversity.location}
-                    onChange={(e) =>
-                      setNewUniversity({
-                        ...newUniversity,
-                        location: e.target.value,
-                      })
-                    }
-                    placeholder="Enter location"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-2">Type</label>
-                  <select
-                    value={newUniversity.type}
-                    onChange={(e) =>
-                      setNewUniversity({ ...newUniversity, type: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  >
-                    <option value="Public">Public</option>
-                    <option value="Private">Private</option>
-                  </select>
-                </div>
+                <ValidatedInput
+                  type="text"
+                  label="University Name"
+                  value={newUniversity.name}
+                  onChange={(e) => setNewUniversity({ ...newUniversity, name: e.target.value })}
+                  placeholder="Enter university name"
+                  required
+                />
+                <ValidatedInput
+                  type="text"
+                  label="Location"
+                  value={newUniversity.location}
+                  onChange={(e) => setNewUniversity({ ...newUniversity, location: e.target.value })}
+                  placeholder="Enter location"
+                  required
+                />
+                <ValidatedInput
+                  type="select"
+                  label="Type"
+                  value={newUniversity.type}
+                  onChange={(e) => setNewUniversity({ ...newUniversity, type: e.target.value })}
+                >
+                  <option value="Public">Public</option>
+                  <option value="Private">Private</option>
+                </ValidatedInput>
               </div>
               <div className="flex gap-3 mt-6">
                 <button

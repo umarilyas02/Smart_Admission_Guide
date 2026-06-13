@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
-import PasswordInput from "@/components/PasswordInput";
+import ValidatedInput from "@/components/ValidatedInput";
 
 export default function AuthPage() {
   const [mode, setMode] = useState("login");
@@ -178,44 +178,42 @@ export default function AuthPage() {
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             {mode === "register" && (
-              <div>
-                <label className="block text-gray-700 font-medium">Full Name</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={onChange("name")}
-                  required
-                  placeholder="Enter your name"
-                  className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
-                />
-              </div>
+              <ValidatedInput
+                type="name"
+                label="Full Name"
+                value={form.name}
+                onChange={onChange("name")}
+                required
+                placeholder="Enter your name"
+              />
             )}
 
-            <div>
-              <label className="block text-gray-700 font-medium">Email</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={onChange("email")}
-                required
-                placeholder="Enter your email"
-                className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
-              />
-            </div>
+            <ValidatedInput
+              type="email"
+              label="Email"
+              value={form.email}
+              onChange={onChange("email")}
+              required
+              placeholder="Enter your email"
+            />
 
-            <PasswordInput
+            <ValidatedInput
+              type="password"
               label="Password"
               value={form.password}
               onChange={onChange("password")}
               placeholder={mode === "login" ? "Enter your password" : "Create password"}
               required
+              showPasswordStrength={mode === "register"}
             />
 
             {mode === "register" && (
-              <PasswordInput
+              <ValidatedInput
+                type="confirm-password"
                 label="Confirm Password"
                 value={form.confirmPassword}
                 onChange={onChange("confirmPassword")}
+                compareValue={form.password}
                 placeholder="Confirm password"
                 required
               />

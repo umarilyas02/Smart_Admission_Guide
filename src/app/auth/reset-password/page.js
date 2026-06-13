@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import Navbar from "@/components/Navbar";
-import PasswordInput from "@/components/PasswordInput";
+import ValidatedInput from "@/components/ValidatedInput";
 
 function ResetPasswordForm() {
   const [email, setEmail] = useState("");
@@ -57,45 +57,42 @@ function ResetPasswordForm() {
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="block text-gray-700 font-medium">Email</label>
-              <input
-                type="email"
-                value={email}
-                required
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
-              />
-            </div>
+            <ValidatedInput
+              type="email"
+              label="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Enter your email"
+            />
 
-            <div>
-              <label className="block text-gray-700 font-medium">OTP</label>
-              <input
-                type="text"
-                value={otp}
-                required
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Enter 6-digit OTP from email"
-                maxLength="6"
-                className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-center text-2xl tracking-widest"
-              />
-            </div>
+            <ValidatedInput
+              type="otp"
+              label="OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              required
+              placeholder="Enter 6-digit OTP from email"
+            />
 
-            <PasswordInput
+            <ValidatedInput
+              type="password"
               label="New Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter new password"
               required
+              placeholder="Enter new password"
+              showPasswordStrength
             />
 
-            <PasswordInput
+            <ValidatedInput
+              type="confirm-password"
               label="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
+              compareValue={password}
               required
+              placeholder="Confirm new password"
             />
 
             <button

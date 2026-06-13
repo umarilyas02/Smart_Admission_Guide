@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import ValidatedInput from "@/components/ValidatedInput";
 
 /* ── helpers ── */
 function pct(obtained, total) {
@@ -17,36 +18,53 @@ function pct(obtained, total) {
   return ((parseFloat(obtained) / parseFloat(total)) * 100).toFixed(1);
 }
 
+// Map HTML input types to ValidatedInput semantic types for format validation
+const SEMANTIC_TYPE = {
+  email:  "email",
+  tel:    "phone",
+  number: "number",
+  date:   "date",
+};
+
+const PACK_INPUT_CLS = "px-3 py-2 rounded-md text-sm text-gray-900 placeholder:text-gray-400 bg-white";
+
 function FieldInput({ field, value, onChange }) {
-  const base =
-    "w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white";
-  if (field.type === "textarea") {
-    return (
-      <textarea
-        value={value || ""}
-        onChange={onChange}
-        placeholder={field.placeholder}
-        rows={field.rows || 3}
-        className={`${base} resize-none`}
-      />
-    );
-  }
   if (field.type === "select") {
     return (
-      <select value={value || ""} onChange={onChange} className={base}>
+      <ValidatedInput
+        type="select"
+        value={value || ""}
+        onChange={onChange}
+        required={field.required}
+        inputClassName={`${PACK_INPUT_CLS} appearance-none pr-10`}
+      >
         {field.options.map((opt) => (
           <option key={opt} value={opt}>{opt || "— Select —"}</option>
         ))}
-      </select>
+      </ValidatedInput>
+    );
+  }
+  if (field.type === "textarea") {
+    return (
+      <ValidatedInput
+        type="textarea"
+        value={value || ""}
+        onChange={onChange}
+        placeholder={field.placeholder}
+        required={field.required}
+        rows={field.rows || 3}
+        inputClassName={`${PACK_INPUT_CLS} resize-none`}
+      />
     );
   }
   return (
-    <input
-      type={field.type}
+    <ValidatedInput
+      type={SEMANTIC_TYPE[field.type] || "text"}
       value={value || ""}
       onChange={onChange}
       placeholder={field.placeholder}
-      className={base}
+      required={field.required}
+      inputClassName={PACK_INPUT_CLS}
     />
   );
 }

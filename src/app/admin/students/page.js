@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
+import ValidatedInput from "@/components/ValidatedInput";
 
 export default function StudentsManagement() {
   const router = useRouter();
@@ -79,12 +80,12 @@ export default function StudentsManagement() {
             Students Management
           </h1>
           <div className="flex gap-2">
-            <input
+            <ValidatedInput
               type="text"
-              placeholder="Search students..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+              placeholder="Search students..."
+              inputClassName="px-4 py-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 bg-white"
             />
           </div>
         </div>
