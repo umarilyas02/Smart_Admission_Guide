@@ -3,10 +3,7 @@
 import { useState } from "react";
 import { validate, passwordStrength as getStrength } from "@/lib/validators";
 
-// Immutable structural classes always present
 const IMMUTABLE = "w-full border focus:ring-2 focus:outline-none transition";
-
-// Default layout — overridden entirely by inputClassName prop
 const DEFAULT_LAYOUT = "px-4 py-2.5 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white";
 
 const STATE_CLASSES = {
@@ -21,27 +18,17 @@ function isValueEmpty(value) {
   return false;
 }
 
-/**
- * ValidatedInput — a single reusable input component with built-in validation.
- *
- * Prop: type — determines validation rules AND the rendered element.
- *   text | name | email | phone | cnic
- *   password | confirm-password
- *   otp
- *   number | percentage | marks | year
- *   textarea | select | date | file
- *
- * For "select": pass option elements as children OR pass options=[{value,label}].
- * For "confirm-password": pass compareValue prop with the original password.
- * For "number/marks": pass min/max to bound the range.
- * For number inputs with a trailing unit symbol: pass suffix="%".
- * For password: pass showPasswordStrength to show a strength bar.
- */
-export default function ValidatedInput({
-  // Semantic type — drives both validation and rendered element
-  type = "text",
+// Type-appropriate default maxLengths
+const DEFAULT_MAX_LENGTH = {
+  name:  50,
+  phone: 13,   // covers +923001234567
+  cnic:  15,   // XXXXX-XXXXXXX-X
+  otp:   6,
+  email: 100,
+};
 
-  // Standard field props
+export default function ValidatedInput({
+  type = "text",
   label,
   value,
   onChange,
@@ -52,43 +39,28 @@ export default function ValidatedInput({
   name,
   id,
   autoComplete,
-
-  // Styling
-  className = "",       // wrapper div
-  inputClassName,       // fully replaces DEFAULT_LAYOUT when provided
-
-  // UX helpers
+  className = "",
+  inputClassName,
   hint,
-  suffix,               // trailing unit inside number inputs (e.g. "%")
-
-  // Number bounds
+  suffix,
   min,
   max,
   step,
-
-  // Textarea
   rows = 3,
-
-  // Select
-  options,              // [{value, label}] — alternative to children
-  children,             // <option> elements passed as children for select
-
-  // Password
+  options,
+  children,
   showPasswordStrength = false,
-
-  // Confirm password
   compareValue,
-
-  // Text length
   maxLength,
 }) {
   const [touched, setTouched] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
 
   const fieldId =
-    id ||
-    name ||
-    (label ? `field-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
+    id || name || (label ? `field-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
+
+  // Effective maxLength — prop wins, then type default
+  const effectiveMaxLength = maxLength ?? DEFAULT_MAX_LENGTH[type];
 
   const error   = touched ? validate(type, value, { required, compareValue, min, max }) : null;
   const isValid = touched && !error && !isValueEmpty(value);
@@ -102,9 +74,14 @@ export default function ValidatedInput({
     onBlur?.(e);
   };
 
+  // Mark touched AND call the upstream onChange
+  const touch = (e) => {
+    setTouched(true);
+    onChange?.(e);
+  };
+
   const strength = showPasswordStrength && value ? getStrength(value) : null;
 
-  // ── Eye toggle button (shared by password + confirm-password) ───────────────
   const eyeToggle = (
     <button
       type="button"
@@ -125,35 +102,33 @@ export default function ValidatedInput({
     </button>
   );
 
-  // ── Render the right element ─────────────────────────────────────────────────
+  // ── Render input element ────────────────────────────────────────────────────
   let inputEl;
 
   if (type === "textarea") {
     inputEl = (
       <textarea
         id={fieldId} name={name} value={value ?? ""}
-        onChange={onChange} onBlur={handleBlur}
+        onChange={touch} onBlur={handleBlur}
         placeholder={placeholder} required={required} disabled={disabled}
-        rows={rows} autoComplete={autoComplete}
+        rows={rows} autoComplete={autoComplete} maxLength={effectiveMaxLength}
         className={`${cls} resize-none`}
       />
     );
+
   } else if (type === "select") {
     inputEl = (
       <div className="relative">
         <select
           id={fieldId} name={name} value={value ?? ""}
-          onChange={onChange} onBlur={handleBlur}
+          onChange={touch} onBlur={handleBlur}
           required={required} disabled={disabled}
           className={`${cls} appearance-none pr-10`}
         >
           {options
-            ? options.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))
+            ? options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
             : children}
         </select>
-        {/* Chevron */}
         <svg
           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -162,42 +137,70 @@ export default function ValidatedInput({
         </svg>
       </div>
     );
+
   } else if (type === "password" || type === "confirm-password") {
     inputEl = (
       <div className="relative">
         <input
           id={fieldId} name={name}
           type={showPwd ? "text" : "password"}
-          value={value ?? ""} onChange={onChange} onBlur={handleBlur}
+          value={value ?? ""} onChange={touch} onBlur={handleBlur}
           placeholder={placeholder} required={required} disabled={disabled}
-          autoComplete={autoComplete} maxLength={maxLength}
+          autoComplete={autoComplete} maxLength={effectiveMaxLength}
           className={`${cls} pr-10`}
         />
         {eyeToggle}
       </div>
     );
+
   } else if (type === "otp") {
+    const handleOtpChange = (e) => {
+      if (e.target.value === "" || /^\d*$/.test(e.target.value)) {
+        setTouched(true);
+        onChange?.(e);
+      }
+    };
     inputEl = (
       <input
         id={fieldId} name={name} type="text" inputMode="numeric"
-        value={value ?? ""} onChange={onChange} onBlur={handleBlur}
+        value={value ?? ""} onChange={handleOtpChange} onBlur={handleBlur}
         placeholder={placeholder || "000000"} required={required} disabled={disabled}
-        maxLength={maxLength || 6} autoComplete="one-time-code"
+        maxLength={effectiveMaxLength} autoComplete="one-time-code"
         className={`${cls} text-center text-2xl tracking-widest`}
       />
     );
+
   } else if (["number", "percentage", "marks", "year"].includes(type)) {
-    const resolvedMax  = max  ?? (type === "percentage" ? 100 : undefined);
-    const resolvedMin  = min  ?? 0;
-    const resolvedStep = step ?? (type === "percentage" ? 0.1 : 1);
+    const isDecimal = type === "percentage" || type === "marks" || (type === "number" && step !== 1);
+    const handleNumericChange = (e) => {
+      const v = e.target.value;
+      const pattern = isDecimal ? /^\d*\.?\d{0,2}$/ : /^\d+$/;
+      if (v === "" || pattern.test(v)) {
+        if (v !== "") {
+          const n = parseFloat(v);
+          if (!isNaN(n)) {
+            if (type === "percentage") {
+              if (n > (max ?? 100)) return;
+            } else if (type === "number" || type === "marks") {
+              if (max !== undefined && n > max) return;
+            } else if (type === "year") {
+              const maxYear = new Date().getFullYear() + 2;
+              if (n > maxYear) return;
+            }
+          }
+        }
+        setTouched(true);
+        onChange?.(e);
+      }
+    };
     inputEl = (
       <div className="relative">
         <input
-          id={fieldId} name={name} type="number"
-          value={value ?? ""} onChange={onChange} onBlur={handleBlur}
+          id={fieldId} name={name} type="text"
+          inputMode={isDecimal ? "decimal" : "numeric"}
+          value={value ?? ""} onChange={handleNumericChange} onBlur={handleBlur}
           placeholder={placeholder} required={required} disabled={disabled}
-          min={resolvedMin} max={resolvedMax} step={resolvedStep}
-          autoComplete={autoComplete}
+          maxLength={effectiveMaxLength} autoComplete={autoComplete}
           className={suffix ? `${cls} pr-10` : cls}
         />
         {suffix && (
@@ -207,39 +210,72 @@ export default function ValidatedInput({
         )}
       </div>
     );
+
   } else if (type === "date") {
     inputEl = (
       <input
         id={fieldId} name={name} type="date"
-        value={value ?? ""} onChange={onChange} onBlur={handleBlur}
+        value={value ?? ""} onChange={touch} onBlur={handleBlur}
         required={required} disabled={disabled} min={min} max={max}
         autoComplete={autoComplete} className={cls}
       />
     );
+
   } else if (type === "file") {
     inputEl = (
       <input
         id={fieldId} name={name} type="file"
-        onChange={onChange} onBlur={handleBlur}
+        onChange={touch} onBlur={handleBlur}
         required={required} disabled={disabled} className={cls}
       />
     );
+
   } else {
     // text, name, email, phone, cnic, and any other string type
     const htmlType =
       type === "email" ? "email" :
       type === "phone" ? "tel"   : "text";
+
+    let filteredOnChange = touch;
+    if (type === "name") {
+      filteredOnChange = (e) => {
+        if (e.target.value === "" || /^[a-zA-Z\s.\-']*$/.test(e.target.value)) {
+          setTouched(true);
+          onChange?.(e);
+        }
+      };
+    } else if (type === "phone") {
+      filteredOnChange = (e) => {
+        if (e.target.value === "" || /^[0-9+\-\s()]*$/.test(e.target.value)) {
+          setTouched(true);
+          onChange?.(e);
+        }
+      };
+    } else if (type === "cnic") {
+      filteredOnChange = (e) => {
+        if (e.target.value === "" || /^[\d-]*$/.test(e.target.value)) {
+          setTouched(true);
+          onChange?.(e);
+        }
+      };
+    }
+
     inputEl = (
       <input
         id={fieldId} name={name} type={htmlType}
-        value={value ?? ""} onChange={onChange} onBlur={handleBlur}
+        value={value ?? ""} onChange={filteredOnChange} onBlur={handleBlur}
         placeholder={placeholder} required={required} disabled={disabled}
-        maxLength={maxLength} autoComplete={autoComplete} className={cls}
+        maxLength={effectiveMaxLength} autoComplete={autoComplete} className={cls}
       />
     );
   }
 
-  // ── Compose the wrapper ──────────────────────────────────────────────────────
+  // Character counter value (skip for select / date / file / password)
+  const showCounter = effectiveMaxLength && !["select", "date", "file", "password", "confirm-password", "otp"].includes(type);
+  const charCount   = String(value ?? "").length;
+  const atLimit     = showCounter && charCount >= effectiveMaxLength;
+
+  // ── Wrapper ────────────────────────────────────────────────────────────────
   return (
     <div className={className}>
       {label && (
@@ -271,19 +307,28 @@ export default function ValidatedInput({
         </div>
       )}
 
-      {/* Error message */}
-      {error && (
-        <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          {error}
-        </p>
-      )}
+      {/* Error / hint row — error on left, counter on right */}
+      {(error || hint || showCounter) && (
+        <div className="flex items-start justify-between mt-1 gap-2">
+          <div className="flex-1 min-w-0">
+            {error ? (
+              <p className="text-red-500 text-xs flex items-center gap-1">
+                <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {error}
+              </p>
+            ) : hint ? (
+              <p className="text-gray-400 text-xs">{hint}</p>
+            ) : null}
+          </div>
 
-      {/* Hint — only shown when no error */}
-      {!error && hint && (
-        <p className="text-gray-400 text-xs mt-1">{hint}</p>
+          {showCounter && (
+            <span className={`text-xs shrink-0 tabular-nums ${atLimit ? "text-red-500 font-semibold" : "text-gray-400"}`}>
+              {charCount}/{effectiveMaxLength}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

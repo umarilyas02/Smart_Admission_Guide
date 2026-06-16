@@ -6,6 +6,18 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatEventType(type) {
+  if (!type) return type;
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function FilterChip({ label, onRemove }) {
   return (
     <span className="inline-flex items-center gap-1 bg-blue-100 text-primary px-3 py-1 rounded-full text-sm font-medium">
@@ -192,7 +204,7 @@ export default function UniversitiesPage() {
                   value={cityFilter}
                   onChange={setCityFilter}
                   placeholder="All cities"
-                />
+                />y 
                 <SelectFilter
                   label="Program"
                   options={allPrograms}
@@ -302,7 +314,7 @@ export default function UniversitiesPage() {
                             : "bg-blue-100 text-primary"
                         }`}
                       >
-                        {nextEvent.status || nextEvent.event_type}
+                        {nextEvent.status || formatEventType(nextEvent.event_type)}
                       </span>
                     )}
                   </div>
@@ -353,8 +365,8 @@ export default function UniversitiesPage() {
                     {nextEvent?.start_date && (
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5 shrink-0" />
-                        {nextEvent.event_type}: {nextEvent.start_date}
-                        {nextEvent.end_date ? ` – ${nextEvent.end_date}` : ""}
+                        {formatEventType(nextEvent.event_type)}: {formatDate(nextEvent.start_date)}
+                        {nextEvent.end_date ? ` – ${formatDate(nextEvent.end_date)}` : ""}
                       </span>
                     )}
                   </div>

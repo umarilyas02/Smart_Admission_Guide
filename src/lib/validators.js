@@ -38,7 +38,10 @@ export function validate(type, value, { required = false, compareValue, min, max
       return value === compareValue ? null : "Passwords do not match";
 
     case "name":
-      return value.trim().length >= 2 ? null : "Name must be at least 2 characters";
+      if (value.trim().length < 2) return "Name must be at least 2 characters";
+      if (value.trim().length > 50) return "Name must be at most 50 characters";
+      if (!/^[a-zA-Z\s.\-']+$/.test(value.trim())) return "Name can only contain letters and spaces";
+      return null;
 
     case "cnic":
       return /^\d{5}-\d{7}-\d$/.test(value) ? null : "Use format: XXXXX-XXXXXXX-X";
@@ -49,7 +52,9 @@ export function validate(type, value, { required = false, compareValue, min, max
     case "percentage": {
       const n = parseFloat(value);
       if (isNaN(n)) return "Enter a valid number";
-      if (n < 0 || n > 100) return "Must be between 0 and 100";
+      const lo = min ?? 0;
+      const hi = max ?? 100;
+      if (n < lo || n > hi) return `Must be between ${lo} and ${hi}`;
       return null;
     }
 

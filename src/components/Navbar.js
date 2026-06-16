@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { GraduationCap } from "lucide-react";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -12,12 +13,26 @@ export default function Navbar() {
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("auth_token");
-      setIsLoggedIn(!!token);
+      if (!token) { setIsLoggedIn(false); return; }
+
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp * 1000 < Date.now()) {
+          localStorage.removeItem("auth_token");
+          setIsLoggedIn(false);
+          return;
+        }
+      } catch {
+        localStorage.removeItem("auth_token");
+        setIsLoggedIn(false);
+        return;
+      }
+
+      setIsLoggedIn(true);
     };
-    
+
     checkAuth();
-    
-    // Listen for storage changes (logout in another tab)
+
     window.addEventListener('storage', checkAuth);
     return () => window.removeEventListener('storage', checkAuth);
   }, []);
@@ -32,7 +47,8 @@ export default function Navbar() {
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex justify-between items-center">
-          <Link href="/" className="text-xl sm:text-2xl font-bold text-primary">
+          <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-bold text-primary">
+            <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
             Smart Admission Guide
           </Link>
           

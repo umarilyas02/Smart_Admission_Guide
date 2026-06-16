@@ -15,6 +15,18 @@ import {
   ChevronRight,
   Receipt,
 } from "lucide-react";
+
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatEventType(type) {
+  if (!type) return type;
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -138,13 +150,13 @@ export default function UniversityProgramsPage({ params }) {
                           className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-sm"
                         >
                           <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
-                          <span className="font-medium text-gray-700 capitalize">
-                            {ev.event_type}
+                          <span className="font-medium text-gray-700">
+                            {formatEventType(ev.event_type)}
                           </span>
                           {ev.start_date && (
                             <span className="text-gray-400">
-                              {ev.start_date}
-                              {ev.end_date ? ` – ${ev.end_date}` : ""}
+                              {formatDate(ev.start_date)}
+                              {ev.end_date ? ` – ${formatDate(ev.end_date)}` : ""}
                             </span>
                           )}
                           {ev.status && (

@@ -10,6 +10,7 @@ import {
   Check, ChevronRight, Save, ArrowLeft, Loader2, Sparkles,
 } from "lucide-react";
 import ValidatedInput from "@/components/ValidatedInput";
+import { authFetch } from "@/lib/authFetch";
 
 const SECTIONS = [
   { id: "personal",  label: "Personal Info",        icon: User,          desc: "Your name and contact details" },
@@ -19,18 +20,34 @@ const SECTIONS = [
 ];
 
 const TEST_TYPES = [
-  { value: "mdcat",   label: "MDCAT",       max: 200 },
-  { value: "ecat",    label: "ECAT",        max: 400 },
-  { value: "nts_nat", label: "NTS NAT",     max: 100 },
-  { value: "nums",    label: "NUMS",        max: 200 },
-  { value: "gat",     label: "GAT General", max: 100 },
-  { value: "other",   label: "Other",       max: 999 },
+  { value: "none",    label: "No test attempted", max: 0   },
+  { value: "mdcat",   label: "MDCAT",             max: 200 },
+  { value: "nums",    label: "NUMS",              max: 200 },
+  { value: "ecat",    label: "ECAT",              max: 400 },
+  { value: "nts_nat", label: "NTS NAT",           max: 100 },
+  { value: "gat",     label: "GAT General",       max: 100 },
+  { value: "other",   label: "Other",             max: 999 },
 ];
+
+// Which tests are relevant for each education level
+const TESTS_FOR_LEVEL = {
+  fsc_medical:     ["none", "mdcat", "nums", "other"],
+  fsc_engineering: ["none", "ecat",  "nts_nat", "other"],
+  ics:             ["none", "ecat",  "nts_nat", "gat", "other"],
+  icom:            ["none", "nts_nat", "gat", "other"],
+  fa:              ["none", "nts_nat", "gat", "other"],
+};
+
+function getRelevantTests(academic_level) {
+  const allowed = TESTS_FOR_LEVEL[academic_level];
+  if (!allowed) return TEST_TYPES; // fallback: show all if no level set
+  return TEST_TYPES.filter(t => allowed.includes(t.value));
+}
 
 function isSectionComplete(id, f) {
   if (id === "personal")  return !!(f.name?.trim() && f.phone?.trim());
   if (id === "academic")  return !!(f.academic_level && f.matric_marks && f.intermediate_marks);
-  if (id === "test")      return !!(f.test_type && f.test_score);
+  if (id === "test")      return !!(f.test_type && (f.test_type === "none" || f.test_score));
   if (id === "interests") return !!f.interests?.trim();
   return false;
 }
@@ -55,12 +72,11 @@ export default function ProfileProgressPage() {
   const router = useRouter();
 
   const fetchSuggestions = async (formData) => {
-    const token = localStorage.getItem("auth_token");
     setSuggestionsLoading(true);
     try {
-      const res = await fetch("/api/profile/suggestions", {
+      const res = await authFetch("/api/profile/suggestions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           academic_level:     formData.academic_level,
           matric_marks:       formData.matric_marks,
@@ -82,7 +98,7 @@ export default function ProfileProgressPage() {
     const token = localStorage.getItem("auth_token");
     if (!token) { router.push("/auth?mode=login"); return; }
 
-    fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } })
+    authFetch("/api/profile")
       .then(r => r.json())
       .then(data => {
         const loaded = {
@@ -108,13 +124,12 @@ export default function ProfileProgressPage() {
   const set = (field, value) => setForm(p => ({ ...p, [field]: value }));
 
   const handleSave = async () => {
-    const token = localStorage.getItem("auth_token");
     setSaving(true);
     setApiError("");
     try {
-      const res = await fetch("/api/profile", {
+      const res = await authFetch("/api/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error();
@@ -285,13 +300,26 @@ export default function ProfileProgressPage() {
                       type="select"
                       label="Current Education Level"
                       value={form.academic_level}
-                      onChange={e => set("academic_level", e.target.value)}
+                      onChange={e => {
+                        const level = e.target.value;
+                        const relevant = getRelevantTests(level).map(t => t.value);
+                        setForm(p => ({
+                          ...p,
+                          academic_level: level,
+                          // reset test fields if selected test no longer valid for new level
+                          test_type:  p.test_type && !relevant.includes(p.test_type) ? "" : p.test_type,
+                          test_score: p.test_type && !relevant.includes(p.test_type) ? "" : p.test_score,
+                        }));
+                      }}
                       required
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
                     >
                       <option value="">Select your current level</option>
-                      <option value="matric">Matric (10th Grade)</option>
-                      <option value="intermediate">Intermediate (12th Grade / FSc / ICS)</option>
+                      <option value="fsc_medical">FSc Pre-Medical</option>
+                      <option value="fsc_engineering">FSc Pre-Engineering</option>
+                      <option value="ics">ICS (Computer Science)</option>
+                      <option value="icom">ICom (Commerce)</option>
+                      <option value="fa">FA (Arts)</option>
                     </ValidatedInput>
 
                     <div className="grid sm:grid-cols-2 gap-5">
@@ -299,15 +327,13 @@ export default function ProfileProgressPage() {
                         type="percentage"
                         label="Matric Marks (%)"
                         value={form.matric_marks}
-                        onChange={e => {
-                          const v = e.target.value;
-                          if (v === "" || (parseFloat(v) >= 33 && parseFloat(v) <= 100)) set("matric_marks", v);
-                        }}
+                        onChange={e => set("matric_marks", e.target.value)}
                         min={33}
                         max={100}
+                        maxLength={6}
                         placeholder="e.g. 85.5"
                         required
-                        hint="Enter percentage, e.g. 85.5"
+                        hint="Enter percentage (33–100)"
                         suffix="%"
                         inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
                       />
@@ -315,15 +341,13 @@ export default function ProfileProgressPage() {
                         type="percentage"
                         label="Intermediate Marks (%)"
                         value={form.intermediate_marks}
-                        onChange={e => {
-                          const v = e.target.value;
-                          if (v === "" || (parseFloat(v) >= 33 && parseFloat(v) <= 100)) set("intermediate_marks", v);
-                        }}
+                        onChange={e => set("intermediate_marks", e.target.value)}
                         min={33}
                         max={100}
+                        maxLength={6}
                         placeholder="e.g. 78.0"
                         required
-                        hint="Enter percentage, e.g. 78.0"
+                        hint="Enter percentage (33–100)"
                         suffix="%"
                         inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
                       />
@@ -355,30 +379,26 @@ export default function ProfileProgressPage() {
                       value={form.test_type}
                       onChange={e => { set("test_type", e.target.value); set("test_score", ""); }}
                       required
-                      hint="Select the entry test you have attempted"
+                      hint={form.academic_level ? "Showing tests relevant to your education level" : "Select your education level first to see relevant tests"}
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
                     >
                       <option value="">Select test type</option>
-                      {TEST_TYPES.map(t => (
+                      {getRelevantTests(form.academic_level).map(t => (
                         <option key={t.value} value={t.value}>{t.label}</option>
                       ))}
                     </ValidatedInput>
 
-                    {form.test_type && (() => {
+                    {form.test_type && form.test_type !== "none" && (() => {
                       const testDef = TEST_TYPES.find(t => t.value === form.test_type);
                       return (
                         <ValidatedInput
                           type="number"
                           label={`${testDef.label} Score`}
                           value={form.test_score}
-                          onChange={e => {
-                            const v = e.target.value;
-                            if (v === "" || (parseFloat(v) >= 0 && parseFloat(v) <= testDef.max)) {
-                              set("test_score", v);
-                            }
-                          }}
+                          onChange={e => set("test_score", e.target.value)}
                           min={0}
                           max={testDef.max}
+                          maxLength={String(testDef.max).length + 3}
                           placeholder={`0 – ${testDef.max}`}
                           required
                           hint={`Enter a value between 0 and ${testDef.max}`}
@@ -406,12 +426,10 @@ export default function ProfileProgressPage() {
                       value={form.interests}
                       onChange={e => set("interests", e.target.value)}
                       rows={6}
+                      maxLength={1000}
                       placeholder="e.g. I'm passionate about software development and machine learning. I want to build innovative products that help people in daily life. I enjoy problem-solving and am drawn to computer science and AI-related fields..."
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white resize-none"
                     />
-                    <p className="text-xs text-gray-400 mt-1.5 text-right">
-                      {form.interests?.length || 0} characters
-                    </p>
                   </div>
 
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700 flex items-start gap-2">

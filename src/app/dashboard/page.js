@@ -9,6 +9,7 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import { authFetch } from "@/lib/authFetch";
 
 const SECTIONS = [
   { id: "personal",  label: "Personal Info",       icon: User },
@@ -40,7 +41,7 @@ export default function DashboardPage() {
     const token = localStorage.getItem("auth_token");
     if (!token) { router.push("/auth?mode=login"); return; }
 
-    fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } })
+    authFetch("/api/profile")
       .then(r => r.json())
       .then(data => {
         setUserData(data.user || null);

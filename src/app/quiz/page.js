@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   GraduationCap,
   ClipboardList,
@@ -249,7 +250,7 @@ export default function QuizPage() {
     <div className="bg-secondary min-h-screen font-inter">
       <Navbar />
 
-      <main className="max-w-2xl mx-auto px-4 py-10">
+      <main className="max-w-2xl mx-auto px-4 py-10 min-h-[calc(100vh-80px)] flex flex-col justify-center">
         {/* ── Welcome ── */}
         {phase === "welcome" && (
           <div className="bg-white p-8 rounded-2xl shadow-lg text-center">
@@ -548,18 +549,18 @@ export default function QuizPage() {
               >
                 Retake Quiz
               </button>
-              <a
+              <Link
                 href="/universities"
                 className="bg-gray-100 text-gray-700 px-6 py-2.5 rounded-xl hover:bg-gray-200 transition font-medium"
               >
                 View Universities
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/dashboard"
                 className="bg-gray-100 text-gray-700 px-6 py-2.5 rounded-xl hover:bg-gray-200 transition font-medium"
               >
                 Dashboard
-              </a>
+              </Link>
             </div>
           </div>
         )}

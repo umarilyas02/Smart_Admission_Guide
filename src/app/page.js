@@ -297,7 +297,7 @@ export default function HomePage() {
                   href="/auth?mode=login"
                   className="bg-white text-gray-700 border border-gray-200 px-8 py-3 rounded-xl hover:bg-gray-50 transition font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2"
                 >
-                  Log In
+                  Login
                 </a>
               </div>
             </div>
