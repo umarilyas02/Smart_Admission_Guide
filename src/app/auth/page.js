@@ -89,9 +89,9 @@ export default function AuthPage() {
       if (mode === "login" && data.token) {
         localStorage.setItem("auth_token", data.token);
         setMessage({ type: "success", text: data.message || "Login successful!" });
-        // Redirect to homepage after short delay
+        const isAdmin = data.user?.email === "smartadmissionguide@gmail.com";
         setTimeout(() => {
-          window.location.href = "/";
+          window.location.href = isAdmin ? "/admin" : "/";
         }, 1000);
       } else {
         setMessage({ type: "success", text: data.message || `Success: ${mode}` });
@@ -119,8 +119,9 @@ export default function AuthPage() {
 
       localStorage.setItem("auth_token", data.token);
       setMessage({ type: "success", text: data.message || "Login successful!" });
+      const isAdmin = data.user?.email === "smartadmissionguide@gmail.com";
       setTimeout(() => {
-        window.location.href = "/";
+        window.location.href = isAdmin ? "/admin" : "/";
       }, 800);
     } catch (err) {
       setMessage({ type: "error", text: err.message });

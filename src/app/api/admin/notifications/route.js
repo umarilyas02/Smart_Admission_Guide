@@ -65,3 +65,4 @@ export async function DELETE(req) {
 }
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';

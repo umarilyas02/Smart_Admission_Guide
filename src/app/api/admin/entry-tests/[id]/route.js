@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { query, queryMany } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
 
 const ADMIN_EMAIL = 'smartadmissionguide@gmail.com';
 
@@ -10,39 +10,31 @@ function isAdmin(req) {
   return decoded?.email === ADMIN_EMAIL;
 }
 
-export async function GET(req) {
+export async function PATCH(req, { params }) {
   if (!isAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
-    const tests = await queryMany(
-      `SELECT id, name, type, subjects, duration, total_marks, description FROM entry_tests ORDER BY id`,
-      []
-    );
-    return NextResponse.json({ tests });
-  } catch (err) {
-    console.error('GET /api/admin/entry-tests error', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
-  }
-}
-
-export async function POST(req) {
-  if (!isAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-  try {
+    const { id } = await params;
     const body = await req.json();
     const { name, type, subjects, duration, total_marks, description } = body;
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: 'Test name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Test name cannot be empty' }, { status: 400 });
     }
 
     const subjectsArr = Array.isArray(subjects)
       ? subjects.map((s) => s.trim()).filter(Boolean)
       : String(subjects || '').split(',').map((s) => s.trim()).filter(Boolean);
 
-    const res = await query(
-      `INSERT INTO entry_tests (name, type, subjects, duration, total_marks, description)
-       VALUES ($1, $2, $3, $4, $5, $6)
+    const updated = await queryOne(
+      `UPDATE entry_tests
+       SET name        = $1,
+           type        = $2,
+           subjects    = $3,
+           duration    = $4,
+           total_marks = $5,
+           description = $6
+       WHERE id = $7
        RETURNING id, name, type, subjects, duration, total_marks, description`,
       [
         name.trim(),
@@ -51,15 +43,29 @@ export async function POST(req) {
         duration?.trim() || null,
         total_marks ? parseInt(total_marks) : null,
         description?.trim() || null,
+        id,
       ]
     );
 
-    return NextResponse.json({ test: res.rows[0] }, { status: 201 });
+    if (!updated) return NextResponse.json({ error: 'Entry test not found' }, { status: 404 });
+    return NextResponse.json({ test: updated });
   } catch (err) {
-    console.error('POST /api/admin/entry-tests error', err);
+    console.error('PATCH /api/admin/entry-tests/[id] error', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req, { params }) {
+  if (!isAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  try {
+    const { id } = await params;
+    await query('DELETE FROM entry_tests WHERE id = $1', [id]);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /api/admin/entry-tests/[id] error', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';

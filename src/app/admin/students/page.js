@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ValidatedInput from "@/components/ValidatedInput";
+import { toast } from "sonner";
 
 export default function StudentsManagement() {
   const router = useRouter();
@@ -37,22 +38,16 @@ export default function StudentsManagement() {
   }, [router]);
 
   const handleBlock = (id, name) => {
-    if (confirm(`Are you sure you want to block ${name}?`)) {
-      setStudents(
-        students.map((student) =>
-          student.id === id ? { ...student, status: "Blocked" } : student
-        )
-      );
+    if (confirm(`Block ${name}?`)) {
+      setStudents(students.map((s) => s.id === id ? { ...s, status: "Blocked" } : s));
+      toast.success(`${name} has been blocked`);
     }
   };
 
   const handleUnblock = (id, name) => {
-    if (confirm(`Are you sure you want to unblock ${name}?`)) {
-      setStudents(
-        students.map((student) =>
-          student.id === id ? { ...student, status: "Active" } : student
-        )
-      );
+    if (confirm(`Unblock ${name}?`)) {
+      setStudents(students.map((s) => s.id === id ? { ...s, status: "Active" } : s));
+      toast.success(`${name} has been unblocked`);
     }
   };
 

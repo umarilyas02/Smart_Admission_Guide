@@ -52,6 +52,27 @@ function isSectionComplete(id, f) {
   return false;
 }
 
+function getMissingFields(id, f) {
+  const missing = [];
+  if (id === "personal") {
+    if (!f.name?.trim())  missing.push("Full Name");
+    if (!f.phone?.trim()) missing.push("Phone Number");
+  }
+  if (id === "academic") {
+    if (!f.academic_level)     missing.push("Education Level");
+    if (!f.matric_marks)       missing.push("Matric Marks");
+    if (!f.intermediate_marks) missing.push("Intermediate Marks");
+  }
+  if (id === "test") {
+    if (!f.test_type)                                   missing.push("Test Type");
+    else if (f.test_type !== "none" && !f.test_score)  missing.push("Test Score");
+  }
+  if (id === "interests") {
+    if (!f.interests?.trim()) missing.push("Interests & Goals");
+  }
+  return missing;
+}
+
 function calcCompletion(form) {
   const done = SECTIONS.filter(s => isSectionComplete(s.id, form)).length;
   return Math.round((done / SECTIONS.length) * 100);
@@ -147,9 +168,12 @@ export default function ProfileProgressPage() {
     }
   };
 
-  const completion   = calcCompletion(form);
-  const activeIdx    = SECTIONS.findIndex(s => s.id === active);
-  const isLastSection = activeIdx === SECTIONS.length - 1;
+  const completion        = calcCompletion(form);
+  const activeIdx         = SECTIONS.findIndex(s => s.id === active);
+  const isLastSection     = activeIdx === SECTIONS.length - 1;
+  const missingFields     = getMissingFields(active, form);
+  const incompleteSections = SECTIONS.filter(s => !isSectionComplete(s.id, form));
+  const allComplete       = incompleteSections.length === 0;
 
   if (loading) {
     return (
@@ -440,34 +464,65 @@ export default function ProfileProgressPage() {
               )}
 
               {/* Footer */}
-              <div className="mt-8 pt-5 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
-                <div className="min-h-5">
-                  {saved && (
-                    <p className="text-green-600 text-sm font-medium flex items-center gap-1.5">
-                      <Check className="w-4 h-4" /> Saved successfully
-                    </p>
-                  )}
-                  {apiError && <p className="text-red-500 text-sm">{apiError}</p>}
-                </div>
+              <div className="mt-8 pt-5 border-t border-gray-100 space-y-3">
 
-                <div className="flex gap-3">
-                  {!isLastSection && (
-                    <button
-                      type="button"
-                      onClick={() => setActive(SECTIONS[activeIdx + 1].id)}
-                      className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
-                    >
-                      Next Section
-                    </button>
-                  )}
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60"
-                  >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {saving ? "Saving…" : "Save Profile"}
-                  </button>
+                {/* Warning: current section has unfilled required fields (sections 1–3) */}
+                {!isLastSection && missingFields.length > 0 && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                    <span className="shrink-0 mt-0.5">⚠️</span>
+                    <span>
+                      Fill in the required field{missingFields.length > 1 ? "s" : ""} to continue:{" "}
+                      <strong>{missingFields.join(", ")}</strong>
+                    </span>
+                  </div>
+                )}
+
+                {/* Warning: on last section, show all incomplete sections */}
+                {isLastSection && !allComplete && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                    <span className="shrink-0 mt-0.5">⚠️</span>
+                    <span>
+                      Complete all sections before saving. Still incomplete:{" "}
+                      <strong>{incompleteSections.map(s => s.label).join(", ")}</strong>
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="min-h-5">
+                    {saved && (
+                      <p className="text-green-600 text-sm font-medium flex items-center gap-1.5">
+                        <Check className="w-4 h-4" /> Saved successfully
+                      </p>
+                    )}
+                    {apiError && <p className="text-red-500 text-sm">{apiError}</p>}
+                  </div>
+
+                  <div className="flex gap-3">
+                    {/* Sections 1–3: blue Next Section button only */}
+                    {!isLastSection && (
+                      <button
+                        type="button"
+                        disabled={missingFields.length > 0}
+                        onClick={() => setActive(SECTIONS[activeIdx + 1].id)}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next Section <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    {/* Section 4 only: Save Profile */}
+                    {isLastSection && (
+                      <button
+                        onClick={handleSave}
+                        disabled={saving || !allComplete}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {saving ? "Saving…" : "Save Profile"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -551,6 +606,7 @@ function MarksBar({ label, value }) {
 
 function SuggestionCard({ suggestion }) {
   const score = suggestion.matchScore ?? 0;
+  const router = useRouter();
 
   return (
     <div className="rounded-xl border border-blue-100 bg-blue-50 p-5 flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -590,6 +646,14 @@ function SuggestionCard({ suggestion }) {
             </div>
           </div>
         )}
+
+        <button
+          onClick={() => router.push(`/universities?program=${encodeURIComponent(suggestion.department)}`)}
+          className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-white border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 rounded-lg px-3 py-2 transition-colors duration-150"
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+          Show universities offering {suggestion.department}
+        </button>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { MapPin, Globe, Calendar, SlidersHorizontal, X, ChevronDown, Search, Receipt } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -53,13 +54,14 @@ function SelectFilter({ label, options, value, onChange, placeholder }) {
 }
 
 export default function UniversitiesPage() {
+  const searchParams = useSearchParams();
   const [universities, setUniversities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showFilters, setShowFilters] = useState(false);
-
-  // Filter state
-  const [programFilter, setProgramFilter] = useState("");
+  // Filter state — pre-populate from URL param if present
+  const initialProgram = searchParams.get("program") ?? "";
+  const [showFilters, setShowFilters] = useState(!!initialProgram);
+  const [programFilter, setProgramFilter] = useState(initialProgram);
   const [cityFilter, setCityFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCards, setExpandedCards] = useState(() => new Set());
@@ -204,7 +206,7 @@ export default function UniversitiesPage() {
                   value={cityFilter}
                   onChange={setCityFilter}
                   placeholder="All cities"
-                />y 
+                />
                 <SelectFilter
                   label="Program"
                   options={allPrograms}

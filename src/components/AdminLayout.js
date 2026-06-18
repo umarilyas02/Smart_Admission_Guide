@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import ChatbotWidget from "./ChatbotWidget";
+import { Toaster } from "sonner";
 
 const ADMIN_EMAIL = "smartadmissionguide@gmail.com";
 
@@ -52,6 +53,7 @@ export default function AdminLayout({ children }) {
       <main className="grow">{children}</main>
       <Footer />
       <ChatbotWidget />
+      <Toaster position="top-right" richColors closeButton />
     </div>
   );
 }

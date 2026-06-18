@@ -83,8 +83,21 @@ async function findUniversityIdByName(name) {
   return existing ? existing.id : null;
 }
 
+// Patterns that indicate a postgraduate / non-bachelor program
+const POSTGRAD_RE = /^(ms\b|m\.s\b|msc\b|m\.sc\b|ma\b|m\.a\b|mphil\b|m\.phil\b|phd\b|ph\.d\b|dphil\b|mba\b|med\b|m\.ed\b|pgd\b|pg\b|post.?grad)/i;
+const POSTGRAD_WORDS_RE = /\b(master[s']?|masters|doctoral|doctorate|doctor of|mphil|m\.phil)\b/i;
+const DIPLOMA_RE = /^(diploma|certificate|short course|associate degree|post.?graduate diploma)/i;
+
+function isBachelorsOnly(name) {
+  const n = name.trim();
+  if (POSTGRAD_RE.test(n)) return false;
+  if (POSTGRAD_WORDS_RE.test(n)) return false;
+  if (DIPLOMA_RE.test(n)) return false;
+  return true;
+}
+
 // Accept programs as an array (preferred) or a comma/semicolon-separated string
-// (legacy). Returns a deduped list of clean program names.
+// (legacy). Returns a deduped list of clean Bachelor's-only program names.
 function normalizePrograms(raw) {
   if (!raw) return [];
   const list = Array.isArray(raw) ? raw : String(raw).split(/,|;/);
@@ -93,6 +106,7 @@ function normalizePrograms(raw) {
   for (const item of list) {
     const p = String(item).replace(/\s+/g, ' ').trim();
     if (!p || p.toLowerCase() === 'program list unavailable') continue;
+    if (!isBachelorsOnly(p)) continue;
     const key = p.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -139,8 +153,32 @@ export async function POST(req) {
       const feeStructureUrl = (it.fee_structure_url || '').trim() || null;
       let universityId = await findUniversityIdByName(name);
       let action = 'created';
+      let fieldChanges = null;
 
       if (universityId) {
+        // Fetch current values so we can report exactly what changed
+        const current = await queryOne(
+          'SELECT description, website, location, fee_structure_url FROM universities WHERE id = $1',
+          [universityId]
+        );
+        const incoming = {
+          description: it.details || null,
+          website: it.website || null,
+          location,
+          fee_structure_url: feeStructureUrl,
+        };
+        fieldChanges = {};
+        for (const [field, newVal] of Object.entries(incoming)) {
+          const oldVal = current ? (current[field] ?? null) : null;
+          if (newVal === null) {
+            fieldChanges[field] = { skipped: true, reason: 'scraper sent no value' };
+          } else if (newVal === oldVal) {
+            fieldChanges[field] = { changed: false, value: newVal };
+          } else {
+            fieldChanges[field] = { changed: true, from: oldVal, to: newVal };
+          }
+        }
+
         await query(
           `UPDATE universities
            SET description = COALESCE($2, description),
@@ -193,24 +231,23 @@ export async function POST(req) {
 
       const programs = normalizePrograms(it.programs_offered || it.programs);
       const programsInserted = [];
+      let programsSkippedCount = 0;
+
       if (programs.length > 0) {
-        // Fetch all existing names once, filter new ones in memory (avoids a
-        // SELECT round-trip per program).
         const existingRows = await queryMany(
           'SELECT lower(name) AS name FROM programs WHERE university_id=$1',
           [universityId]
         );
         const existing = new Set(existingRows.map((r) => r.name));
         const toInsert = programs.filter((p) => !existing.has(p.toLowerCase()));
+        programsSkippedCount = programs.length - toInsert.length;
 
-        // Bulk-insert the new programs in chunks (one multi-row INSERT per chunk).
         const CHUNK = 100;
         for (let i = 0; i < toInsert.length; i += CHUNK) {
           const chunk = toInsert.slice(i, i + CHUNK);
           const values = [];
           const params = [];
           chunk.forEach((p, j) => {
-            // ($1,$2,NOW()), ($3,$4,NOW()), ...
             values.push(`($${j * 2 + 1}, $${j * 2 + 2}, NOW())`);
             params.push(universityId, p);
           });
@@ -234,16 +271,18 @@ export async function POST(req) {
       const endDate = parseDate(it.end_date || it.end || '');
       console.log(
         `[${itemIndex}] ✅ SAVE: ${name} (${action}) - Events: ${startDate} to ${endDate}, ` +
-        `Programs: +${programsInserted.length} new / ${programsTotal} total`
+        `Programs: +${programsInserted.length} added / ${programsSkippedCount} unchanged / ${programsTotal} total`
       );
 
       inserted.push({
         universityId,
         name,
         action,
+        field_changes: fieldChanges,
         programs_inserted: programsInserted.length,
+        programs_inserted_names: programsInserted,
+        programs_skipped: programsSkippedCount,
         programs_total: programsTotal,
-        programs_offered: programs,
       });
     }
 

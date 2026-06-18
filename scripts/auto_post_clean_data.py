@@ -43,25 +43,22 @@ pat_full_day   = rf'(?<!st )(?<!nd )(?<!rd )(?<!th )({_FULL})\s+(\d{{1,2}})(?=[^
 
 # 2. Program extraction — regex-based, no hardcoded list
 
-# Full degree name: "Bachelor/Master/Doctor of X" optionally "(Specialization)"
+# Full degree name — Bachelor only ("Bachelor of Science (CS)", "Bachelor of Engineering")
 _DEG_FULL = re.compile(
-    r'\b(Bachelor[s]?|Master[s]?|Doctor)\s+of\s+([A-Za-z][A-Za-z\s&,]{1,50}?)(?:\s*\(([^)]{2,60})\))?'
-    r'(?=\s+(?:Bachelor|Master|Doctor|BS\b|MS\b|PhD\b|BBA\b|MBA\b|\d)|[,\n]|\Z)',
+    r'\b(Bachelor[s]?)\s+of\s+([A-Za-z][A-Za-z\s&,]{1,50}?)(?:\s*\(([^)]{2,60})\))?'
+    r'(?=\s+(?:Bachelor|BS\b|BBA\b|\d)|[,\n]|\Z)',
     re.IGNORECASE
 )
-# Abbreviated form: "BS/MS/PhD" + optional qualifier "(Hons)" + subject in parens or as words
+# Abbreviated form — Bachelor-level degrees only; Masters/PhD excluded
 _DEG_ABBREV = re.compile(
-    r'\b(BS|MS|PhD|BBA|MBA|MPhil|M\.Phil|ADP|DPT|MBBS|EMBA|'
-    r'B\.Sc\.?|M\.Sc\.?|B\.Ed\.?|LL\.B\.?|LLB|Pharm\.?-?D\.?|BA|MA)'
+    r'\b(BS|BBA|ADP|DPT|MBBS|B\.Sc\.?|B\.Ed\.?|LL\.B\.?|LLB|Pharm\.?-?D\.?|BA|BFA|BArch|BEng)'
     r'(?:\s*\((?:Hons?\.?|Honours|Engg?\.?)\))?'
     r'(?:\s*\(([^)]{3,70})\)|\s+([A-Z][A-Za-z][A-Za-z\s&/-]{1,70}))?',
     re.IGNORECASE
 )
-_EXEC_MBA = re.compile(r'\bExecutive\s+MBA\b', re.IGNORECASE)
 # Anything that marks the start of a new program or irrelevant section
 _PROG_SPLIT = re.compile(
-    r'\b(?:BS|MS|PhD|BBA|MBA|MPhil|ADP|DPT|EMBA|'
-    r'Bachelor|Master|Doctor|Executive\s+MBA|'
+    r'\b(?:BS|BBA|ADP|DPT|Bachelor|'
     r'Morning|Evening|Afternoon|Self.Supporting|Regular|Replica|Weekend|'
     r'\d+\s*[Yy]ears?)',
     re.IGNORECASE
@@ -96,9 +93,6 @@ def extract_programs_from_content(content):
         full = f"{abbrev} {suffix}".strip() if suffix else abbrev
         if len(full) >= 3:
             found.add(full)
-
-    for _ in _EXEC_MBA.finditer(text):
-        found.add("Executive MBA")
 
     return sorted(p for p in found if 3 <= len(p) <= 120)
 
@@ -545,18 +539,54 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
             ic = text.get('inserted_count')
             inserted = text.get('inserted') or []
             summary = text.get('summary') or {}
-            print(f"\n🎉 Data seeding successful!")
-            print(f"   Inserted/updated {ic} university record(s).")
-            if 'programs_inserted' in summary:
-                print(f"   Programs inserted (new): {summary.get('programs_inserted')}")
+            print(f"\n🎉 Data seeding successful! {ic} university record(s) processed.\n")
             if inserted:
-                print('\n📋 Universities:')
-                for it in inserted:
-                    pi = it.get('programs_inserted', 0)
-                    pt = it.get('programs_total', 0)
-                    act = it.get('action', 'saved')
-                    print(f"   ✓ {it.get('name')} (id={it.get('universityId')}) "
-                          f"[{act}] — {pi} new / {pt} total program(s)")
+                print('📋 Per-university breakdown:')
+                print('─' * 72)
+                for uni in inserted:
+                    act    = uni.get('action', 'saved')
+                    uname  = uni.get('name', '?')
+                    uid    = uni.get('universityId')
+                    pi     = uni.get('programs_inserted', 0)
+                    ps     = uni.get('programs_skipped', 0)
+                    pt     = uni.get('programs_total', 0)
+                    pnames = uni.get('programs_inserted_names') or []
+                    fc     = uni.get('field_changes') or {}
+
+                    icon = '🆕' if act == 'created' else '✏️ '
+                    print(f"\n  {icon} {uname}  (id={uid})  [{act.upper()}]")
+
+                    # --- university fields ---
+                    if act == 'updated' and fc:
+                        changed  = {f: v for f, v in fc.items() if v.get('changed')}
+                        same     = {f: v for f, v in fc.items() if not v.get('changed') and not v.get('skipped')}
+                        skipped  = {f: v for f, v in fc.items() if v.get('skipped')}
+                        if changed:
+                            for f, v in changed.items():
+                                old = (str(v.get('from') or 'null'))[:60]
+                                new = (str(v.get('to')   or 'null'))[:60]
+                                print(f"     ✏️  {f}: {old!r} → {new!r}")
+                        if same:
+                            print(f"     ✓  unchanged fields: {', '.join(same.keys())}")
+                        if skipped:
+                            print(f"     —  not sent by scraper: {', '.join(skipped.keys())}")
+                    elif act == 'created':
+                        print(f"     🆕 all fields written (new record)")
+
+                    # --- programs ---
+                    if pi > 0:
+                        preview = ', '.join(pnames[:4])
+                        more    = f'  …+{len(pnames)-4} more' if len(pnames) > 4 else ''
+                        print(f"     ➕ {pi} program(s) added: {preview}{more}")
+                    else:
+                        print(f"     ✓  no new programs (all {ps} already in DB)")
+                    if ps > 0 and pi > 0:
+                        print(f"     ✓  {ps} program(s) already existed (unchanged)")
+                    print(f"     📚 {pt} total program(s) in DB")
+
+                print('\n' + '─' * 72)
+                if 'programs_inserted' in summary:
+                    print(f"   Total new programs across all universities: {summary.get('programs_inserted')}")
         else:
             print('Data seeding successful.')
             print('Response:', text)
