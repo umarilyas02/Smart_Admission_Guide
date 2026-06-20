@@ -29,6 +29,41 @@ const TEST_TYPES = [
   { value: "other",   label: "Other",             max: 999 },
 ];
 
+// Interest suggestion chips per education level
+const INTEREST_CHIPS = {
+  fa: [
+    "Literature & Creative Writing", "History & Civilization", "Urdu Language & Poetry",
+    "English Literature", "Political Science", "Sociology & Social Work",
+    "Psychology & Counseling", "Fine Arts & Visual Design", "Media & Journalism",
+    "Philosophy & Ethics", "Education & Teaching", "Law & Civil Services",
+    "Arabic Language & Islamic Studies", "Library & Information Sciences",
+  ],
+  fsc_medical: [
+    "Biology & Life Sciences", "Human Anatomy & Physiology", "Chemistry & Biochemistry",
+    "Medicine & Healthcare", "Pharmacy & Drug Sciences", "Dentistry",
+    "Microbiology & Genetics", "Public Health & Nutrition", "Nursing",
+    "Veterinary Sciences", "Biomedical Research",
+  ],
+  fsc_engineering: [
+    "Mathematics & Applied Sciences", "Physics & Mechanics", "Civil Engineering",
+    "Mechanical Engineering", "Electrical Engineering", "Chemical Engineering",
+    "Architecture & Urban Planning", "Aerospace Engineering", "Environmental Engineering",
+    "Structural Design", "Renewable Energy",
+  ],
+  ics: [
+    "Computer Science & Programming", "Artificial Intelligence & ML", "Software Development",
+    "Cybersecurity & Networking", "Data Science & Analytics", "Web & App Development",
+    "Database Management", "Cloud Computing", "Game Development",
+    "Mathematics & Algorithms", "Electronics & Embedded Systems",
+  ],
+  icom: [
+    "Business Administration", "Economics & Finance", "Accounting & Audit",
+    "Marketing & E-commerce", "Banking & Financial Services", "Human Resource Management",
+    "Entrepreneurship & Startups", "Supply Chain & Logistics", "International Trade",
+    "Statistics & Research Methods", "Public Administration",
+  ],
+};
+
 // Which tests are relevant for each education level
 const TESTS_FOR_LEVEL = {
   fsc_medical:     ["none", "mdcat", "nums", "other"],
@@ -443,6 +478,38 @@ export default function ProfileProgressPage() {
               {active === "interests" && (
                 <div>
                   <SectionHeader icon={Lightbulb} title="Interests & Goals" subtitle="Help our AI understand your passions and career direction" />
+
+                  {/* Suggestion chips filtered by academic level */}
+                  {INTEREST_CHIPS[form.academic_level] && (
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Tap to add to your interests
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {INTEREST_CHIPS[form.academic_level].map(chip => {
+                          const already = form.interests.toLowerCase().includes(chip.toLowerCase());
+                          return (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() => {
+                                if (already) return;
+                                set("interests", form.interests ? `${form.interests.trimEnd()}, ${chip}` : chip);
+                              }}
+                              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                                already
+                                  ? "bg-blue-600 text-white border-blue-600 cursor-default"
+                                  : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600"
+                              }`}
+                            >
+                              {already ? <span className="flex items-center gap-1"><Check className="w-3 h-3" />{chip}</span> : chip}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <ValidatedInput
                       type="textarea"
@@ -451,7 +518,19 @@ export default function ProfileProgressPage() {
                       onChange={e => set("interests", e.target.value)}
                       rows={6}
                       maxLength={1000}
-                      placeholder="e.g. I'm passionate about software development and machine learning. I want to build innovative products that help people in daily life. I enjoy problem-solving and am drawn to computer science and AI-related fields..."
+                      placeholder={
+                        form.academic_level === "fa"
+                          ? "e.g. I'm passionate about literature and creative writing. I enjoy history, political science, and social issues. I want to pursue a career in journalism, law, or public service..."
+                          : form.academic_level === "fsc_medical"
+                          ? "e.g. I'm passionate about biology and human health. I want to become a doctor and help people. I'm interested in research, medicine, and public health..."
+                          : form.academic_level === "fsc_engineering"
+                          ? "e.g. I love mathematics and physics. I enjoy solving structural and mechanical problems. I want to pursue civil or electrical engineering..."
+                          : form.academic_level === "ics"
+                          ? "e.g. I'm passionate about programming and AI. I enjoy building apps and solving algorithmic problems. I want to work in software engineering or data science..."
+                          : form.academic_level === "icom"
+                          ? "e.g. I'm interested in business, finance, and economics. I enjoy learning about markets and entrepreneurship. I want to work in banking or start my own business..."
+                          : "e.g. Describe your interests, hobbies, and the career you want to pursue. Be as detailed as possible..."
+                      }
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white resize-none"
                     />
                   </div>

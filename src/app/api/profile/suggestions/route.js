@@ -14,6 +14,17 @@ export async function POST(req) {
 
   const { academic_level, matric_marks, intermediate_marks } = await req.json();
 
+  const PROGRAMS_BY_LEVEL = {
+    fa:              "Mass Communication, Journalism, Law (LLB), Psychology, Economics, Sociology, Social Work, Education, Political Science, English Literature, Fine Arts, International Relations, Islamic Studies, Public Administration, Linguistics, History",
+    fsc_medical:     "Medicine (MBBS), Pharmacy, Dentistry, Physiotherapy, Nursing, Biotechnology, Microbiology, Biomedical Sciences, Veterinary Medicine, Public Health, Nutrition & Dietetics",
+    fsc_engineering: "Civil Engineering, Mechanical Engineering, Electrical Engineering, Chemical Engineering, Aerospace Engineering, Architecture, Environmental Engineering, Mechatronics Engineering",
+    ics:             "Computer Science, Software Engineering, Data Science, Artificial Intelligence, Cybersecurity, Information Technology, Electrical Engineering, Mechatronics Engineering, Mathematics",
+    icom:            "Business Administration (BBA/MBA), Accounting & Finance, Economics, Commerce, Banking & Finance, Marketing, Human Resource Management, Supply Chain Management, Public Administration",
+  };
+
+  const allowedPrograms = PROGRAMS_BY_LEVEL[academic_level]
+    || "Computer Science, Software Engineering, Business Administration, Medicine (MBBS), Civil Engineering, Electrical Engineering, Mechanical Engineering, Psychology, Economics, Architecture, Mass Communication, Law, Pharmacy, Biotechnology, Data Science, Artificial Intelligence, Accounting & Finance";
+
   const prompt = `You are an academic counselor for Smart Admission Guide (SAG), a Pakistani university admissions platform. Based solely on the student's previous academic results, suggest the single most suitable university program for them.
 
 Student's Previous Studies:
@@ -22,6 +33,8 @@ Student's Previous Studies:
 - Intermediate Marks: ${intermediate_marks != null ? intermediate_marks + "%" : "Not provided"}
 
 Based only on their academic background and marks (not interests or test scores), recommend the best-fit program.
+
+IMPORTANT: Only recommend programs the student is eligible for based on their education level. Do NOT suggest programs outside this allowed list.
 
 Respond in this EXACT JSON format (no extra text, no markdown):
 {
@@ -37,7 +50,7 @@ Respond in this EXACT JSON format (no extra text, no markdown):
   ]
 }
 
-Provide exactly 1 suggestion. Choose from: Computer Science, Software Engineering, Business Administration, Medicine (MBBS), Civil Engineering, Electrical Engineering, Mechanical Engineering, Psychology, Economics, Architecture, Mass Communication, Law, Pharmacy, Biotechnology, Data Science, Artificial Intelligence, Accounting & Finance.`;
+Provide exactly 1 suggestion. Choose ONLY from: ${allowedPrograms}.`;
 
   try {
     const message = await client.messages.create({

@@ -133,16 +133,28 @@ async function buildProjectContext() {
   }
 }
 
-function buildSystemPrompt(dbContext) {
+const ELIGIBLE_PROGRAMS = {
+  fa:              "Mass Communication, Journalism, Law (LLB), Psychology, Economics, Sociology, Social Work, Education, Political Science, English Literature, Fine Arts, International Relations, Islamic Studies, Public Administration, Linguistics, History",
+  fsc_medical:     "Medicine (MBBS), Pharmacy, Dentistry, Physiotherapy, Nursing, Biotechnology, Microbiology, Biomedical Sciences, Veterinary Medicine, Public Health, Nutrition & Dietetics",
+  fsc_engineering: "Civil Engineering, Mechanical Engineering, Electrical Engineering, Chemical Engineering, Aerospace Engineering, Architecture, Environmental Engineering, Mechatronics Engineering",
+  ics:             "Computer Science, Software Engineering, Data Science, Artificial Intelligence, Cybersecurity, Information Technology, Electrical Engineering, Mechatronics Engineering, Mathematics",
+  icom:            "Business Administration (BBA/MBA), Accounting & Finance, Economics, Commerce, Banking & Finance, Marketing, Human Resource Management, Supply Chain Management, Public Administration",
+};
+
+function buildSystemPrompt(dbContext, academicLevel) {
   const base = `You are SAG AI — the intelligent assistant for Smart Admission Guide (SAG), a platform helping Pakistani students with university admissions.`;
 
+  const levelNote = academicLevel && ELIGIBLE_PROGRAMS[academicLevel]
+    ? `\n\nSTUDENT CONTEXT: This student completed ${academicLevel.toUpperCase().replace(/_/g, " ")}. When suggesting programs or departments, ONLY recommend programs they are eligible for: ${ELIGIBLE_PROGRAMS[academicLevel]}. Do NOT suggest programs outside this list.`
+    : "";
+
   if (!dbContext) {
-    return `${base}
+    return `${base}${levelNote}
 
 No university data is available in the database yet. Politely inform the user that admission data is still being loaded into the system and ask them to check back soon. Do not answer from general knowledge.`;
   }
 
-  return `${base}
+  return `${base}${levelNote}
 
 YOUR KNOWLEDGE IS STRICTLY LIMITED TO THE DATA BELOW. Do not use any outside knowledge.
 
@@ -205,9 +217,21 @@ export async function POST(req) {
     const userText = lastUserMsg?.content || '';
     const relevant = isAdmissionRelated(userText);
 
+    // Fetch student's academic level for level-aware recommendations
+    let academicLevel = null;
+    if (userId) {
+      try {
+        const studentRow = await queryOne(
+          `SELECT academic_level FROM students WHERE user_id = $1`,
+          [userId]
+        );
+        academicLevel = studentRow?.academic_level || null;
+      } catch { /* non-fatal */ }
+    }
+
     // Build DB context and system prompt
     const dbContext = await buildProjectContext();
-    const systemPrompt = buildSystemPrompt(dbContext);
+    const systemPrompt = buildSystemPrompt(dbContext, academicLevel);
 
     const claudeMessages = messages.map((m) => ({
       role: m.role,

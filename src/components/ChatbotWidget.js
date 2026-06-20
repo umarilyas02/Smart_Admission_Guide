@@ -280,25 +280,12 @@ export default function ChatbotWidget() {
             <AnonGate />
           ) : (
             <>
-              {/* Suggestions */}
-              <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide border-t border-gray-50 bg-white">
-                {["NUST merit?", "Scholarship options"].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => { setInput(s); inputRef.current?.focus(); }}
-                    className="text-xs whitespace-nowrap px-3 py-1.5 rounded-full border border-purple-200 text-purple-600 hover:bg-purple-50 transition shrink-0"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
 
               {/* Input */}
               <div className="p-3 bg-white border-t border-gray-100">
                 {!isLoggedIn && (
                   <p className="text-center text-xs text-amber-600 mb-2">
-                    {ANON_LIMIT - parseInt(localStorage.getItem(ANON_STORAGE_KEY) || "0", 10)} free question{ANON_LIMIT === 1 ? "" : "s"} remaining —{" "}
-                    <a href="/auth?mode=login" className="underline font-medium">log in</a> for unlimited.
+                    <a href="/auth?mode=login" className="underline font-medium">Log in</a> for extra credits.
                   </p>
                 )}
                 <div className="flex items-end gap-2 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-100 transition p-1 pl-3">

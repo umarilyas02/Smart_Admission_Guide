@@ -4,7 +4,7 @@ const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
 export async function POST(request) {
   try {
-    const { questions, answers } = await request.json();
+    const { questions, answers, academic_level } = await request.json();
 
     if (!questions || !answers) {
       return Response.json(
@@ -12,6 +12,21 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    const PROGRAMS_BY_LEVEL = {
+      fa:              "Mass Communication, Journalism, Law (LLB), Psychology, Economics, Sociology, Social Work, Education, Political Science, English Literature, Fine Arts, International Relations, Islamic Studies, Public Administration, Linguistics, History",
+      fsc_medical:     "Medicine (MBBS), Pharmacy, Dentistry, Physiotherapy, Nursing, Biotechnology, Microbiology, Biomedical Sciences, Veterinary Medicine, Public Health, Nutrition & Dietetics",
+      fsc_engineering: "Civil Engineering, Mechanical Engineering, Electrical Engineering, Chemical Engineering, Aerospace Engineering, Architecture, Environmental Engineering, Mechatronics Engineering",
+      ics:             "Computer Science, Software Engineering, Data Science, Artificial Intelligence, Cybersecurity, Information Technology, Electrical Engineering, Mechatronics Engineering, Mathematics",
+      icom:            "Business Administration (BBA/MBA), Accounting & Finance, Economics, Commerce, Banking & Finance, Marketing, Human Resource Management, Supply Chain Management, Public Administration",
+    };
+
+    const allowedPrograms = PROGRAMS_BY_LEVEL[academic_level]
+      || "Computer Science, Software Engineering, Business Administration, Medicine (MBBS), Civil Engineering, Electrical Engineering, Mechanical Engineering, Psychology, Economics, Architecture, Mass Communication, Law, Education, Pharmacy, Biotechnology, Accounting & Finance, Data Science, Artificial Intelligence";
+
+    const levelNote = academic_level
+      ? `\n\nStudent's Education Level: ${academic_level.toUpperCase().replace("_", " ")}. You MUST only recommend programs this student is eligible for based on their education level.`
+      : "";
 
     const answersText = questions
       .map(
@@ -22,7 +37,7 @@ export async function POST(request) {
       )
       .join("\n\n");
 
-    const prompt = `You are an expert academic counselor for a Smart Admission Guide (SAG) system in Pakistan. Based on a student's aptitude and interest quiz answers, recommend the most suitable academic department for them.
+    const prompt = `You are an expert academic counselor for a Smart Admission Guide (SAG) system in Pakistan. Based on a student's aptitude and interest quiz answers, recommend the most suitable academic department for them.${levelNote}
 
 Student's Quiz Responses:
 ${answersText}
@@ -38,7 +53,7 @@ Analyze these responses carefully and respond in this EXACT JSON format (no extr
   "careers": ["Career path 1", "Career path 2", "Career path 3"]
 }
 
-Choose from departments like: Computer Science, Software Engineering, Business Administration, Medicine (MBBS), Civil Engineering, Electrical Engineering, Mechanical Engineering, Psychology, Economics, Architecture, Mass Communication, Law, Education, Pharmacy, Biotechnology, Accounting & Finance, Data Science, Artificial Intelligence.`;
+IMPORTANT: Choose ONLY from these eligible departments: ${allowedPrograms}.`;
 
     const message = await client.messages.create({
       model: process.env.CLAUDE_MODEL,

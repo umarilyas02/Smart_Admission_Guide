@@ -377,7 +377,7 @@ export default function UniversitiesPage() {
                   <div className="flex gap-2">
                     <a
                       href={`/universities/${uni.id}`}
-                      className="flex-1 text-center bg-primary text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition font-medium text-sm"
+                      className="flex-1 text-center bg-blue-50 text-primary border border-blue-200 px-4 py-2 rounded-xl hover:bg-primary hover:text-white hover:border-primary transition-all font-medium text-sm"
                     >
                       View Programs
                     </a>
@@ -386,7 +386,7 @@ export default function UniversitiesPage() {
                         href={uni.fee_structure_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition text-sm"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl hover:bg-blue-700 transition font-medium text-sm"
                         title="View fee structure"
                       >
                         <Receipt className="w-4 h-4" />
