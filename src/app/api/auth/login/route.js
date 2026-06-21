@@ -15,7 +15,7 @@ export async function POST(request) {
 
     // Find user by email
     const { rows } = await pool.query(
-      'SELECT id, name, email, password FROM users WHERE email = $1',
+      'SELECT id, name, email, password, is_blocked FROM users WHERE email = $1',
       [email]
     );
 
@@ -27,6 +27,13 @@ export async function POST(request) {
     }
 
     const user = rows[0];
+
+    if (user.is_blocked) {
+      return Response.json(
+        { error: 'Your account has been suspended. Please contact support.' },
+        { status: 403 }
+      );
+    }
 
     // Compare passwords
     const isPasswordValid = await comparePassword(password, user.password);

@@ -4,6 +4,31 @@ import os
 import sys
 from datetime import datetime
 
+
+def _reconfigure_stream(stream):
+    try:
+        stream.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
+
+def _safe_print(*args, sep=' ', end='\n', file=None, flush=False):
+    stream = file or sys.stdout
+    text = sep.join(str(arg) for arg in args) + end
+    try:
+        stream.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, 'encoding', None) or 'utf-8'
+        fallback = text.encode(encoding, errors='replace').decode(encoding, errors='replace')
+        stream.write(fallback)
+    if flush:
+        stream.flush()
+
+
+_reconfigure_stream(sys.stdout)
+_reconfigure_stream(sys.stderr)
+print = _safe_print
+
 try:
     import requests
 except ImportError:
@@ -59,19 +84,80 @@ _DEG_ABBREV = re.compile(
 # Anything that marks the start of a new program or irrelevant section
 _PROG_SPLIT = re.compile(
     r'\b(?:BS|BBA|ADP|DPT|Bachelor|'
+    r'MS|M\.?Phil|MPhil|MBA|PhD|Doctor(?:ate)?|Master(?:s)?|'
     r'Morning|Evening|Afternoon|Self.Supporting|Regular|Replica|Weekend|'
     r'\d+\s*[Yy]ears?)',
+    re.IGNORECASE
+)
+_TRAILING_CUTOFF = re.compile(
+    r'\b(?:'
+    r'Faculty\s+of|Department\s+of|Institute\s+of|School\s+of|College\s+of|Centre\s+for|'
+    r'Sub\s+department\s+under|'
+    r'Degree\s+Program\s+Name|Program\s+Name|Undergraduate|Postgraduate|Graduate|'
+    r'Fee\s+Structure|Per\s+Credit\s+Hour\s+Fee|One\s+Time\s+Fee|Admission\s+Fee|'
+    r'Registration\s+Fee|Tuition\s+Fee|Semester\s+\d+|Search\s+Programs|All\s+Programs|'
+    r'Latest\s+News|View\s+Programs|Campus\s+Location|Students\s+Admissions|'
+    r'Knowledge\s+Unit|Years?\b|Year\s+Degree\s+Programs?|Programmes?|Programs?'
+    r')\b',
+    re.IGNORECASE
+)
+_NOISY_PROGRAM = re.compile(
+    r'(?:'
+    r'Degree\s+Program\s+Name|Fee\s+Structure|Per\s+Credit\s+Hour\s+Fee|'
+    r'Admission\s+Fee|Registration\s+Fee|Tuition\s+Fee|Search\s+Programs|'
+    r'Latest\s+News|Campus\s+Location|Students\s+Admissions|'
+    r'Qualified\s+List|Scholar|Download|Read\s+More'
+    r')',
+    re.IGNORECASE
+)
+_POSTGRAD_PREFIX = re.compile(
+    r'^(?:MS|M\.S\.?|MPhil|M\.Phil\.?|PhD|Ph\.D\.?|MBA|Executive\s+MBA|EMBA|Master(?:s)?\b|Doctor(?:ate)?\b)',
+    re.IGNORECASE
+)
+_UNDERGRAD_STANDALONE = re.compile(
+    r'^(?:BS|BBA|ADP|DPT|MBBS|B\.Sc\.?|B\.Ed\.?|LL\.B\.?|LLB|Pharm\.?-?D\.?|BA|BFA|BArch|BEng|Bachelor\b)',
     re.IGNORECASE
 )
 
 
 def _clean_prog(prog):
+    prog = re.sub(r'\s+', ' ', prog)
+    prog = re.sub(r'^(?:Graduate|Undergraduate)\s+', '', prog, flags=re.IGNORECASE)
+    prog = _TRAILING_CUTOFF.split(prog, 1)[0]
+    prog = re.sub(r'\(\s*\d+(?:\.\d+)?\s*(?:Years?|Yrs?)\s*\)', '', prog, flags=re.IGNORECASE)
     prog = re.sub(
         r'\s*\(\s*(?:Morning|Afternoon|Evening|Self[- ]Supporting|Regular|Replica|Weekend)\s*\)',
         '', prog, flags=re.IGNORECASE
     )
+    prog = re.sub(r'\b(?:Morning|Afternoon|Evening|Self[- ]Supporting|Regular|Replica|Weekend)\b', '', prog, flags=re.IGNORECASE)
+    prog = re.sub(r'\b(?:Post|Post-)\b.*$', '', prog, flags=re.IGNORECASE)
+    prog = re.sub(r'\b\d+(?:\.\d+)?\s*(?:Years?|Yrs?)\b.*$', '', prog, flags=re.IGNORECASE)
     prog = re.sub(r'\s+\d+\s*(?:Years?|Yrs?)\b.*$', '', prog, flags=re.IGNORECASE)
-    return prog.strip(' ,;/-')
+    prog = re.sub(r'\s+[A-Z]$', '', prog)
+    prog = prog.replace('(', '').replace(')', '')
+    prog = re.sub(r'\s*[-–:|]+\s*$', '', prog)
+    prog = re.sub(r'\s{2,}', ' ', prog)
+    return prog.strip(' ,;/-()')
+
+
+def _looks_like_valid_program(prog):
+    if not prog or len(prog) < 3 or len(prog) > 120:
+        return False
+    if _NOISY_PROGRAM.search(prog):
+        return False
+    if _POSTGRAD_PREFIX.match(prog):
+        return False
+    if not _UNDERGRAD_STANDALONE.match(prog):
+        return False
+    if re.match(r'^(?:BS|BA|ADP|B\.Sc\.?|B\.Ed\.?)\s+\d', prog, flags=re.IGNORECASE):
+        return False
+    if re.fullmatch(r'(?:BS|BA|ADP|B\.Sc\.?|B\.Ed\.?|Bachelor)', prog, flags=re.IGNORECASE):
+        return False
+    if re.search(r'\d\.?$', prog):
+        return False
+    if prog.endswith(('(', '/', '&', '-', ':')):
+        return False
+    return True
 
 
 def extract_programs_from_content(content):
@@ -82,7 +168,9 @@ def extract_programs_from_content(content):
 
     # Full names: "Bachelor of Science (Computer Science)", "Doctor of Philosophy (CS)"
     for m in _DEG_FULL.finditer(text):
-        found.add(_clean_prog(m.group(0)))
+        prog = _clean_prog(m.group(0))
+        if _looks_like_valid_program(prog):
+            found.add(prog)
 
     # Abbreviated: "BS Computer Science", "BS (CS)", "BA (Honours) English"
     for m in _DEG_ABBREV.finditer(text):
@@ -91,10 +179,10 @@ def extract_programs_from_content(content):
         suffix = _PROG_SPLIT.split(suffix, 1)[0]    # cut at next degree keyword
         suffix = _clean_prog(suffix).strip()
         full = f"{abbrev} {suffix}".strip() if suffix else abbrev
-        if len(full) >= 3:
+        if _looks_like_valid_program(full):
             found.add(full)
 
-    return sorted(p for p in found if 3 <= len(p) <= 120)
+    return sorted(found)
 
 
 # 3. Location + fee-structure-link extraction
@@ -151,6 +239,7 @@ def extract_fee_url_from_content(content):
 
 TARGET_URL = os.environ.get('TARGET_URL', 'https://smart-admission-guide.vercel.app/api/universities')
 REPLACE = os.environ.get('REPLACE', 'false').lower() in ('1', 'true', 'yes')
+SKIP_POST = os.environ.get('SKIP_POST', 'false').lower() in ('1', 'true', 'yes')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
 # Initialize Claude client (Haiku only - cost-efficient)
@@ -513,6 +602,10 @@ def process_and_post(input_path='data.json', output_path='clean_data.json'):
 
     print(f"\nClean data exported to {output_path}")
     print('=' * 80 + '\n')
+
+    if SKIP_POST:
+        print('⏭️  Skipping POST; clean data written locally for app-side sync.')
+        return True
 
     # POST to the API
     payload = {"replace": REPLACE, "data": cleaned_results}

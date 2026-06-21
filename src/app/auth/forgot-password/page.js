@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
             Forgot Password?
           </h2>
           <p className="text-center text-gray-600 mt-2">
-            Enter your email to receive a password reset link
+            Enter your email to receive a 6-digit OTP
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
-              {loading ? "Sending..." : "Send Reset Link"}
+              {loading ? "Sending..." : "Send OTP"}
             </button>
           </form>
 

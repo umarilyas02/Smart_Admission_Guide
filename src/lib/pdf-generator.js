@@ -290,3 +290,157 @@ export function generateRecommendationRequestPDF(f, r = {}) {
     );
   });
 }
+
+function ensureSpace(doc, needed = 80) {
+  if (doc.y + needed > doc.page.height - 60) {
+    doc.addPage();
+  }
+}
+
+function smallStatBox(doc, x, y, width, label, value, color = '#2563eb') {
+  const height = 48;
+  doc.roundedRect(x, y, width, height, 8).fillAndStroke('#f8fafc', '#e5e7eb');
+  doc.fillColor('#64748b').fontSize(8).font('Helvetica').text(label, x + 10, y + 8, { width: width - 20 });
+  doc.fillColor(color).fontSize(16).font('Helvetica-Bold').text(String(value ?? 0), x + 10, y + 22, { width: width - 20 });
+  doc.fillColor('#111827');
+}
+
+export function generateSyncReportPDF(report = {}) {
+  return toBuffer((doc) => {
+    const completedAt = report.completedAt
+      ? new Date(report.completedAt).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '—';
+    const summary = report.summary || {};
+    const inserted = report.inserted || [];
+    const skipped = report.skipped || [];
+    const logs = report.logs || [];
+    const steps = report.steps || [];
+
+    doc.fontSize(18).font('Helvetica-Bold').fillColor('#0f172a')
+      .text('Smart Admission Guide', { align: 'center' });
+    doc.moveDown(0.2);
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#2563eb')
+      .text('Scrape & Sync Report', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(9).font('Helvetica').fillColor('#64748b')
+      .text(`Generated: ${completedAt}`, { align: 'center' });
+    doc.moveDown(0.8);
+
+    const cardY = doc.y;
+    const gap = 10;
+    const boxWidth = (495 - gap * 3) / 4;
+    smallStatBox(doc, 50, cardY, boxWidth, 'Universities Created', summary.universities_created || 0, '#16a34a');
+    smallStatBox(doc, 50 + boxWidth + gap, cardY, boxWidth, 'Universities Updated', summary.universities_updated || 0, '#2563eb');
+    smallStatBox(doc, 50 + (boxWidth + gap) * 2, cardY, boxWidth, 'Programs Added', summary.programs_inserted || 0, '#16a34a');
+    smallStatBox(
+      doc,
+      50 + (boxWidth + gap) * 3,
+      cardY,
+      boxWidth,
+      'Programs Removed',
+      (summary.programs_deleted || 0) + (summary.program_duplicates_removed || 0),
+      '#dc2626'
+    );
+    doc.y = cardY + 62;
+
+    sectionHeading(doc, 'Pipeline Status');
+    if (steps.length) {
+      steps.forEach((step) => {
+        ensureSpace(doc, 32);
+        const status = step.status === 'done' ? 'DONE' : step.status === 'failed' ? 'FAILED' : step.status === 'running' ? 'RUNNING' : 'PENDING';
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#111827')
+          .text(`${step.label}: `, 50, doc.y, { continued: true });
+        doc.fillColor(step.status === 'done' ? '#15803d' : step.status === 'failed' ? '#dc2626' : '#2563eb')
+          .text(status, { continued: false });
+        if (step.detail) {
+          doc.fontSize(8).font('Helvetica').fillColor('#64748b')
+            .text(step.detail, 70, doc.y + 2, { width: 470 });
+        }
+        doc.moveDown(0.5);
+      });
+    } else {
+      doc.fontSize(9).font('Helvetica').fillColor('#111827').text('No pipeline steps recorded.');
+    }
+
+    sectionHeading(doc, 'Summary');
+    twoCol(doc, [
+      ['Total payloads', summary.total],
+      ['Saved', summary.saved],
+      ['Skipped', summary.skipped],
+      ['Events Created', summary.events_created],
+      ['Events Updated', summary.events_updated],
+      ['Programs Unchanged', summary.programs_skipped],
+      ['Programs Renamed', summary.programs_renamed],
+      ['Duplicates Removed', summary.program_duplicates_removed],
+    ]);
+
+    sectionHeading(doc, 'Per-University Changes');
+    if (inserted.length) {
+      inserted.forEach((item) => {
+        ensureSpace(doc, 90);
+        doc.roundedRect(50, doc.y, 495, 64, 8).strokeColor('#e5e7eb').lineWidth(1).stroke();
+        const top = doc.y + 8;
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#0f172a')
+          .text(item.name, 60, top, { width: 300 });
+        doc.fontSize(8).font('Helvetica').fillColor('#64748b')
+          .text(`University ${item.action} • Event ${item.event_action} • ${item.programs_total} total programs`, 60, top + 14, { width: 300 });
+        doc.fontSize(8).font('Helvetica-Bold').fillColor('#15803d')
+          .text(`+${item.programs_inserted} added`, 370, top, { width: 70, align: 'right' });
+        doc.fillColor('#475569').text(`${item.programs_skipped} unchanged`, 445, top, { width: 90, align: 'right' });
+        doc.fillColor('#d97706').text(`${item.programs_renamed} renamed`, 370, top + 14, { width: 70, align: 'right' });
+        doc.fillColor('#dc2626').text(`${item.programs_deleted + item.program_duplicates_removed} removed`, 445, top + 14, { width: 90, align: 'right' });
+
+        const detailLines = [];
+        if (item.programs_inserted_names?.length) detailLines.push(`Added: ${item.programs_inserted_names.slice(0, 4).join(', ')}`);
+        if (item.program_renames?.length) detailLines.push(`Renamed: ${item.program_renames.slice(0, 2).map((entry) => `${entry.from} → ${entry.to}`).join(', ')}`);
+        if (item.programs_deleted_names?.length) detailLines.push(`Removed: ${item.programs_deleted_names.slice(0, 2).join(', ')}`);
+        if (detailLines.length) {
+          doc.fontSize(7).font('Helvetica').fillColor('#334155')
+            .text(detailLines.join('   '), 60, top + 32, { width: 470 });
+        }
+        doc.y += 72;
+      });
+    } else {
+      doc.fontSize(9).font('Helvetica').fillColor('#111827').text('No universities were saved.');
+    }
+
+    if (skipped.length) {
+      sectionHeading(doc, 'Skipped Items');
+      skipped.forEach((item) => {
+        ensureSpace(doc, 30);
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#991b1b')
+          .text(item.university || 'Unknown');
+        doc.fontSize(8).font('Helvetica').fillColor('#64748b')
+          .text((item.errors || []).join(', '), 65, doc.y + 2, { width: 470 });
+        doc.moveDown(0.6);
+      });
+    }
+
+    if (logs.length) {
+      sectionHeading(doc, 'Execution Log');
+      logs.forEach((line) => {
+        ensureSpace(doc, 24);
+        doc.fontSize(7.5).font('Helvetica').fillColor('#334155')
+          .text(line, 50, doc.y, { width: 495 });
+        doc.moveDown(0.35);
+      });
+    }
+
+    if (report.output) {
+      sectionHeading(doc, 'Cleaner Output');
+      ensureSpace(doc, 60);
+      doc.fontSize(7.5).font('Helvetica').fillColor('#334155')
+        .text(String(report.output), 50, doc.y, { width: 495 });
+    }
+
+    doc.moveDown(1);
+    doc.fontSize(7).font('Helvetica').fillColor('#94a3b8')
+      .text('Generated via Smart Admission Guide · Admin Sync Report', { align: 'center' });
+  });
+}

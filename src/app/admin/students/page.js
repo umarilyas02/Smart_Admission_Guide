@@ -6,12 +6,78 @@ import AdminLayout from "@/components/AdminLayout";
 import ValidatedInput from "@/components/ValidatedInput";
 import { toast } from "sonner";
 import Breadcrumb from "@/components/Breadcrumb";
+import { X } from "lucide-react";
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="flex justify-between gap-4 py-2 border-b border-gray-100 last:border-0">
+      <span className="text-gray-500 text-sm font-medium shrink-0">{label}</span>
+      <span className="text-gray-800 text-sm text-right">{value || "—"}</span>
+    </div>
+  );
+}
+
+function StudentModal({ student, onClose }) {
+  if (!student) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-800">Student Details</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div>
+          <DetailRow label="Name" value={student.name} />
+          <DetailRow label="Email" value={student.email} />
+          <DetailRow label="Phone" value={student.phone} />
+          <DetailRow label="Academic Level" value={student.academicLevel} />
+          <DetailRow
+            label="Matric Marks"
+            value={student.matric_marks != null ? `${student.matric_marks}%` : null}
+          />
+          <DetailRow
+            label="Intermediate Marks"
+            value={student.intermediate_marks != null ? `${student.intermediate_marks}%` : null}
+          />
+          <DetailRow
+            label="Test Score"
+            value={student.test_score != null ? String(student.test_score) : null}
+          />
+          <DetailRow label="Test Type" value={student.test_type} />
+          <DetailRow label="Interests" value={student.interests} />
+          <DetailRow label="Status" value={student.status} />
+          <DetailRow
+            label="Registered"
+            value={
+              student.created_at
+                ? new Date(student.created_at).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : null
+            }
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function StudentsManagement() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewStudent, setViewStudent] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -30,7 +96,7 @@ export default function StudentsManagement() {
           (data.students || []).map((s) => ({
             ...s,
             academicLevel: s.academic_level || "—",
-            status: "Active",
+            status: s.is_blocked ? "Blocked" : "Active",
           }))
         );
         setLoading(false);
@@ -38,24 +104,60 @@ export default function StudentsManagement() {
       .catch(() => setLoading(false));
   }, [router]);
 
-  const handleBlock = (id, name) => {
-    if (confirm(`Block ${name}?`)) {
-      setStudents(students.map((s) => s.id === id ? { ...s, status: "Blocked" } : s));
+  async function handleBlock(id, name) {
+    if (!confirm(`Block ${name}? They will not be able to log in.`)) return;
+    const token = localStorage.getItem("auth_token");
+    try {
+      const res = await fetch(`/api/admin/students/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ is_blocked: true }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to block");
+      setStudents((prev) => prev.map((s) => s.id === id ? { ...s, status: "Blocked" } : s));
       toast.success(`${name} has been blocked`);
+    } catch (err) {
+      toast.error(err.message);
     }
-  };
+  }
 
-  const handleUnblock = (id, name) => {
-    if (confirm(`Unblock ${name}?`)) {
-      setStudents(students.map((s) => s.id === id ? { ...s, status: "Active" } : s));
+  async function handleUnblock(id, name) {
+    if (!confirm(`Unblock ${name}?`)) return;
+    const token = localStorage.getItem("auth_token");
+    try {
+      const res = await fetch(`/api/admin/students/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ is_blocked: false }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to unblock");
+      setStudents((prev) => prev.map((s) => s.id === id ? { ...s, status: "Active" } : s));
       toast.success(`${name} has been unblocked`);
+    } catch (err) {
+      toast.error(err.message);
     }
-  };
+  }
+
+  async function handleDelete(id, name) {
+    if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+    const token = localStorage.getItem("auth_token");
+    try {
+      const res = await fetch(`/api/admin/students/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to delete");
+      setStudents((prev) => prev.filter((s) => s.id !== id));
+      toast.success(`${name} has been deleted`);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
 
   const filteredStudents = students.filter(
-    (student) =>
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (s) =>
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (loading) {
@@ -70,24 +172,20 @@ export default function StudentsManagement() {
 
   return (
     <AdminLayout>
+      <StudentModal student={viewStudent} onClose={() => setViewStudent(null)} />
       <div className="p-8">
         <Breadcrumb />
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-blue-600">
-            Students Management
-          </h1>
-          <div className="flex gap-2">
-            <ValidatedInput
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search students..."
-              inputClassName="px-4 py-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 bg-white"
-            />
-          </div>
+          <h1 className="text-2xl font-bold text-blue-600">Students Management</h1>
+          <ValidatedInput
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search students..."
+            inputClassName="px-4 py-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 bg-white"
+          />
         </div>
 
-        {/* Stats Summary */}
         <div className="grid md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg shadow">
             <p className="text-gray-600 text-sm">Total Students</p>
@@ -107,7 +205,6 @@ export default function StudentsManagement() {
           </div>
         </div>
 
-        {/* Students Table */}
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <table className="w-full">
             <thead className="bg-blue-600 text-white">
@@ -123,13 +220,13 @@ export default function StudentsManagement() {
             <tbody>
               {filteredStudents.map((student) => (
                 <tr key={student.id} className="border-t hover:bg-gray-50">
-                  <td className="p-4">{student.id}</td>
+                  <td className="p-4 text-sm">{student.id}</td>
                   <td className="p-4 font-medium">{student.name}</td>
-                  <td className="p-4 text-gray-600">{student.email}</td>
-                  <td className="p-4">{student.academicLevel}</td>
+                  <td className="p-4 text-gray-600 text-sm">{student.email}</td>
+                  <td className="p-4 text-sm">{student.academicLevel}</td>
                   <td className="p-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-sm ${
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
                         student.status === "Active"
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
@@ -139,24 +236,35 @@ export default function StudentsManagement() {
                     </span>
                   </td>
                   <td className="p-4">
-                    <button className="text-blue-600 hover:text-blue-800 font-medium mr-3">
-                      View
-                    </button>
-                    {student.status === "Active" ? (
+                    <div className="flex items-center gap-3 text-sm font-medium">
                       <button
-                        onClick={() => handleBlock(student.id, student.name)}
-                        className="text-red-600 hover:text-red-800 font-medium"
+                        onClick={() => setViewStudent(student)}
+                        className="text-blue-600 hover:text-blue-800"
                       >
-                        Block
+                        View
                       </button>
-                    ) : (
+                      {student.status === "Active" ? (
+                        <button
+                          onClick={() => handleBlock(student.id, student.name)}
+                          className="text-amber-600 hover:text-amber-800"
+                        >
+                          Block
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleUnblock(student.id, student.name)}
+                          className="text-green-600 hover:text-green-800"
+                        >
+                          Unblock
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleUnblock(student.id, student.name)}
-                        className="text-green-600 hover:text-green-800 font-medium"
+                        onClick={() => handleDelete(student.id, student.name)}
+                        className="text-red-600 hover:text-red-800"
                       >
-                        Unblock
+                        Delete
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}

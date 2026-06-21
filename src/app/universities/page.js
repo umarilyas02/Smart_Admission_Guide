@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import { MapPin, Globe, Calendar, SlidersHorizontal, X, ChevronDown, Search, Receipt } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { MapPin, Globe, Calendar, SlidersHorizontal, X, ChevronDown, Search, Receipt, Bell, Check } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import Breadcrumb from "@/components/Breadcrumb";
+
+function isRawDescription(desc) {
+  if (!desc || desc.length < 40) return true;
+  if (/\|/.test(desc)) return true;
+  if (/\b(menu|home page|sign in|login|copyright|all rights reserved|admissions open|click here|read more)\b/i.test(desc)) return true;
+  return false;
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return null;
@@ -56,6 +64,7 @@ function SelectFilter({ label, options, value, onChange, placeholder }) {
 
 export default function UniversitiesPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [universities, setUniversities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -66,6 +75,64 @@ export default function UniversitiesPage() {
   const [cityFilter, setCityFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCards, setExpandedCards] = useState(() => new Set());
+  const [favorites, setFavorites] = useState(() => new Set());
+  const [justAdded, setJustAdded] = useState(() => new Set());
+
+  // Load favorites from DB if user is logged in
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    if (!token) return;
+    fetch("/api/universities/favorites", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data?.favorites) setFavorites(new Set(data.favorites)); })
+      .catch(() => {});
+  }, []);
+
+  const toggleFavorite = async (id, name) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    if (!token) {
+      toast.error("Please log in to save favourites", {
+        action: { label: "Login", onClick: () => router.push("/auth") },
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/universities/${id}/favorite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+
+      if (res.status === 401) {
+        localStorage.removeItem("auth_token");
+        toast.error("Session expired. Please log in again.", {
+          action: { label: "Login", onClick: () => router.push("/auth") },
+        });
+        return;
+      }
+
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (data.favorited) {
+          next.add(id);
+          setJustAdded((ja) => new Set(ja).add(id));
+          setTimeout(() => setJustAdded((ja) => { const n = new Set(ja); n.delete(id); return n; }), 1400);
+          toast.success(`You'll receive event reminders for ${name}`, { duration: 4000 });
+        } else {
+          next.delete(id);
+          toast.info(`Removed ${name} from favourites`);
+        }
+        return next;
+      });
+    } catch {
+      toast.error("Failed to update favourites. Please try again.");
+    }
+  };
 
   const toggleExpanded = (id) =>
     setExpandedCards((prev) => {
@@ -311,20 +378,38 @@ export default function UniversitiesPage() {
                         </p>
                       )}
                     </div>
-                    {nextEvent && (
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-                          nextEvent.status?.toLowerCase() === "open"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-blue-100 text-primary"
+                    <div className="flex items-center gap-2 shrink-0">
+                      {nextEvent && (
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                            nextEvent.status?.toLowerCase() === "open"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-blue-100 text-primary"
+                          }`}
+                        >
+                          {nextEvent.status || formatEventType(nextEvent.event_type)}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => toggleFavorite(uni.id, uni.name)}
+                        title={favorites.has(uni.id) ? "Remove from favourites" : "Add to favourites"}
+                        className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-300 ${
+                          favorites.has(uni.id)
+                            ? "bg-primary text-white shadow-md shadow-primary/30 scale-105"
+                            : "bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-primary border border-gray-100"
                         }`}
                       >
-                        {nextEvent.status || formatEventType(nextEvent.event_type)}
-                      </span>
-                    )}
+                        <Bell className={`w-4 h-4 transition-transform duration-150 ${justAdded.has(uni.id) ? "scale-125" : "scale-100"}`} />
+                        {justAdded.has(uni.id) && (
+                          <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 bg-green-500 rounded-full animate-bounce shadow-sm">
+                            <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
-                  {uni.description && (
+                  {uni.description && !isRawDescription(uni.description) && (
                     <p className="text-gray-500 text-sm mb-4 line-clamp-2 leading-relaxed">
                       {uni.description}
                     </p>

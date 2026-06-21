@@ -15,6 +15,13 @@ import {
   Receipt,
 } from "lucide-react";
 
+function isRawDescription(desc) {
+  if (!desc || desc.length < 40) return true;
+  if (/\|/.test(desc)) return true;
+  if (/\b(menu|home page|sign in|login|copyright|all rights reserved|admissions open|click here|read more)\b/i.test(desc)) return true;
+  return false;
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
@@ -102,7 +109,7 @@ export default function UniversityProgramsPage({ params }) {
                         {data.location}
                       </p>
                     )}
-                    {data.description && (
+                    {data.description && !isRawDescription(data.description) && (
                       <p className="text-gray-600 text-sm leading-relaxed max-w-2xl">
                         {data.description}
                       </p>

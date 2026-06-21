@@ -17,6 +17,17 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: 'University not found' }, { status: 404 });
     }
 
+    if (university.description) {
+      university.description = university.description
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+    }
+
     const programs = await queryMany(
       `SELECT id, name, fee, duration, eligibility
        FROM programs

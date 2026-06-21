@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import ValidatedInput from "@/components/ValidatedInput";
@@ -11,21 +11,41 @@ function ResetPasswordForm() {
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [step, setStep] = useState(1); // 1 = OTP entry, 2 = new password
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const searchParams = useSearchParams();
+  const router = useRouter();
 
-  // Prefill email when arriving from the forgot-password flow
   useEffect(() => {
     const initialEmail = searchParams.get("email") || "";
     if (initialEmail) setEmail(initialEmail);
   }, [searchParams]);
 
-  const handleSubmit = async (e) => {
+  const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Verification failed");
+      setStep(2);
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
     try {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
@@ -33,8 +53,9 @@ function ResetPasswordForm() {
         body: JSON.stringify({ email, otp, password, confirmPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Request failed");
-      setMessage({ type: "success", text: data.message });
+      if (!res.ok) throw new Error(data.error || "Reset failed");
+      setMessage({ type: "success", text: "Password reset successfully! Redirecting to login…" });
+      setTimeout(() => router.push("/auth"), 2000);
     } catch (err) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -44,70 +65,117 @@ function ResetPasswordForm() {
 
   return (
     <div className="bg-secondary min-h-screen font-inter">
-      {/* Header */}
       <Navbar />
 
       <div className="max-w-md mx-auto px-4 pt-6">
         <Breadcrumb />
       </div>
 
-      {/* Main Content */}
       <main className="min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">
         <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-xl shadow-lg fade-in">
-          <h2 className="text-3xl font-bold text-center text-primary">
-            Reset Password
-          </h2>
-          <p className="text-center text-gray-600 mt-2">
-            Enter your new password below
-          </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <ValidatedInput
-              type="email"
-              label="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
-            />
+          {/* Step indicator */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${step >= 1 ? "bg-primary text-white" : "bg-gray-200 text-gray-500"}`}>
+              1
+            </div>
+            <div className={`h-1 w-12 rounded ${step >= 2 ? "bg-primary" : "bg-gray-200"}`} />
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${step >= 2 ? "bg-primary text-white" : "bg-gray-200 text-gray-500"}`}>
+              2
+            </div>
+          </div>
 
-            <ValidatedInput
-              type="otp"
-              label="OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-              placeholder="Enter 6-digit OTP from email"
-            />
+          {step === 1 && (
+            <>
+              <h2 className="text-3xl font-bold text-center text-primary">Verify OTP</h2>
+              <p className="text-center text-gray-600 mt-2">
+                Enter the 6-digit code sent to <span className="font-medium text-gray-800">{email}</span>
+              </p>
 
-            <ValidatedInput
-              type="password"
-              label="New Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter new password"
-              showPasswordStrength
-            />
+              <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4">
+                {!searchParams.get("email") && (
+                  <ValidatedInput
+                    type="email"
+                    label="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="Enter your email"
+                  />
+                )}
 
-            <ValidatedInput
-              type="confirm-password"
-              label="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              compareValue={password}
-              required
-              placeholder="Confirm new password"
-            />
+                <ValidatedInput
+                  type="otp"
+                  label="OTP"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  required
+                  placeholder="Enter 6-digit OTP"
+                />
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
-            >
-              {loading ? "Resetting..." : "Reset Password"}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                >
+                  {loading ? "Verifying..." : "Verify OTP"}
+                </button>
+              </form>
+
+              <p className="text-center text-gray-500 text-sm mt-4">
+                Didn&apos;t receive a code?{" "}
+                <a href="/auth/forgot-password" className="text-primary font-semibold hover:underline">
+                  Resend OTP
+                </a>
+              </p>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <h2 className="text-3xl font-bold text-center text-primary">New Password</h2>
+              <p className="text-center text-gray-600 mt-2">
+                Choose a strong new password
+              </p>
+
+              <form onSubmit={handleResetPassword} className="mt-6 space-y-4">
+                <ValidatedInput
+                  type="password"
+                  label="New Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="Enter new password"
+                  showPasswordStrength
+                />
+
+                <ValidatedInput
+                  type="confirm-password"
+                  label="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  compareValue={password}
+                  required
+                  placeholder="Confirm new password"
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                >
+                  {loading ? "Resetting..." : "Reset Password"}
+                </button>
+              </form>
+
+              <button
+                onClick={() => { setStep(1); setMessage(null); }}
+                className="w-full text-center text-gray-500 text-sm mt-3 hover:text-primary transition"
+              >
+                Back to OTP entry
+              </button>
+            </>
+          )}
 
           {message && (
             <div
@@ -122,15 +190,14 @@ function ResetPasswordForm() {
           )}
 
           <p className="text-center text-gray-600 mt-4">
-            Back to
-            <a href="/auth" className="text-primary font-semibold hover:underline ml-1">
+            Back to{" "}
+            <a href="/auth" className="text-primary font-semibold hover:underline">
               Login
             </a>
           </p>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="bg-white py-6 mt-12">
         <div className="max-w-7xl mx-auto px-6 text-center text-gray-600">
           <p>&copy; 2026 Smart Admission Guide. All rights reserved.</p>
@@ -139,6 +206,7 @@ function ResetPasswordForm() {
     </div>
   );
 }
+
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={

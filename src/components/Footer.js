@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { GraduationCap } from "lucide-react";
+import { useState, useEffect } from "react";
 
-const links = [
+const allLinks = [
   {
     heading: "Tools",
     items: [
@@ -27,6 +30,22 @@ const links = [
 ];
 
 export default function Footer() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setIsLoggedIn(payload.exp * 1000 > Date.now());
+      } catch {
+        setIsLoggedIn(false);
+      }
+    }
+  }, []);
+
+  const links = isLoggedIn ? allLinks.filter((g) => g.heading !== "Account") : allLinks;
+
   return (
     <footer className="bg-gray-900 text-gray-400" aria-label="Site footer">
       <div className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
