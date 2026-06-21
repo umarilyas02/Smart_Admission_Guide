@@ -7,7 +7,6 @@ import {
   MapPin,
   Globe,
   Calendar,
-  ArrowLeft,
   BookOpen,
   Clock,
   DollarSign,
@@ -30,6 +29,7 @@ function formatEventType(type) {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import Breadcrumb from "@/components/Breadcrumb";
 
 function InfoBadge({ icon: Icon, label, value }) {
   if (!value) return null;
@@ -68,14 +68,11 @@ export default function UniversityProgramsPage({ params }) {
       <main className="min-h-screen py-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
 
-          {/* Back link */}
-          <Link
-            href="/universities"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-primary transition mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Universities
-          </Link>
+          <Breadcrumb items={[
+            { label: "Home", href: "/" },
+            { label: "Universities", href: "/universities" },
+            { label: data?.name ?? "...", href: `/universities/${id}` },
+          ]} />
 
           {/* Loading */}
           {loading && (

@@ -4,15 +4,25 @@ function isEmpty(value) {
   return false;
 }
 
+function wordCount(str) {
+  return String(str).trim().split(/\s+/).filter(Boolean).length;
+}
+
+function hasInjection(value) {
+  const sql = /\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|WHERE|FROM|TABLE|DATABASE|SCRIPT)\b/i;
+  const xss = /<[^>]*>|javascript:|on\w+\s*=/i;
+  return sql.test(value) || xss.test(value);
+}
+
 /**
  * Validates a value based on its semantic type.
  * Returns an error string or null if valid.
  *
- * Supported types: email, phone, password, confirm-password, name,
+ * Supported types: email, phone, password, confirm-password, name, alpha,
  *   cnic, otp, percentage, year, number, marks, text, textarea, select,
  *   date, file
  */
-export function validate(type, value, { required = false, compareValue, min, max } = {}) {
+export function validate(type, value, { required = false, compareValue, min, max, maxWords } = {}) {
   const empty = isEmpty(value);
 
   if (empty) return required ? "This field is required" : null;
@@ -25,10 +35,10 @@ export function validate(type, value, { required = false, compareValue, min, max
 
     case "phone": {
       const clean = String(value).replace(/[\s\-()+]/g, "");
-      // Pakistani numbers: 03XXXXXXXXX (11 digits), +923XXXXXXXXX → 923XXXXXXXXX (12 digits)
+      // Accepts: 03XXXXXXXXX (11), 3XXXXXXXXX (10), +923XXXXXXXXX / 923XXXXXXXXX (12)
       return /^(92)?0?3\d{9}$/.test(clean)
         ? null
-        : "Enter a valid phone number (e.g. 03001234567 or +923001234567)";
+        : "Enter a valid Pakistani mobile number (e.g. 03001234567)";
     }
 
     case "password":
@@ -40,7 +50,13 @@ export function validate(type, value, { required = false, compareValue, min, max
     case "name":
       if (value.trim().length < 2) return "Name must be at least 2 characters";
       if (value.trim().length > 50) return "Name must be at most 50 characters";
-      if (!/^[a-zA-Z\s.\-']+$/.test(value.trim())) return "Name can only contain letters and spaces";
+      if (!/^[a-zA-Z\s.\-']+$/.test(value.trim())) return "Only letters and spaces are allowed (no numbers or special characters)";
+      return null;
+
+    case "alpha":
+      if (value.trim().length < 2) return "Must be at least 2 characters";
+      if (!/^[a-zA-Z\s,.\-'()]+$/.test(value.trim()))
+        return "Only letters and basic punctuation are allowed (no numbers or special characters)";
       return null;
 
     case "cnic":
@@ -75,7 +91,16 @@ export function validate(type, value, { required = false, compareValue, min, max
       return null;
     }
 
-    // textarea, text, select, date, file — only required check matters
+    case "textarea":
+      if (hasInjection(value)) return "Invalid input: contains disallowed content";
+      if (maxWords && wordCount(value) > maxWords) return `Maximum ${maxWords} words allowed`;
+      return null;
+
+    case "text":
+      if (hasInjection(value)) return "Invalid input: contains disallowed content";
+      return null;
+
+    // select, date, file — only required check matters
     default:
       return null;
   }

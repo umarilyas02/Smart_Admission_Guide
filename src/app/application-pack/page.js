@@ -11,6 +11,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ValidatedInput from "@/components/ValidatedInput";
+import Breadcrumb from "@/components/Breadcrumb";
 
 /* ── helpers ── */
 function pct(obtained, total) {
@@ -18,7 +19,7 @@ function pct(obtained, total) {
   return ((parseFloat(obtained) / parseFloat(total)) * 100).toFixed(1);
 }
 
-// Map HTML input types to ValidatedInput semantic types for format validation
+// Map legacy HTML types to ValidatedInput semantic types
 const SEMANTIC_TYPE = {
   email:  "email",
   tel:    "phone",
@@ -53,13 +54,14 @@ function FieldInput({ field, value, onChange }) {
         placeholder={field.placeholder}
         required={field.required}
         rows={field.rows || 3}
+        maxWords={field.maxWords}
         inputClassName={`${PACK_INPUT_CLS} resize-none`}
       />
     );
   }
   return (
     <ValidatedInput
-      type={SEMANTIC_TYPE[field.type] || "text"}
+      type={SEMANTIC_TYPE[field.type] || field.type}
       value={value || ""}
       onChange={onChange}
       placeholder={field.placeholder}
@@ -167,11 +169,11 @@ function DocumentChecklist({ checklist, checked, onToggle }) {
 function RecommenderForm({ info, onChange }) {
   const base = "w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white";
   const fields = [
-    { id: "name",         label: "Recommender's Full Name",       placeholder: "e.g. Dr. Asif Iqbal",         required: true },
-    { id: "designation",  label: "Designation / Title",           placeholder: "e.g. Associate Professor",    required: true },
-    { id: "department",   label: "Department / Institution",      placeholder: "e.g. Dept. of CS, FAST Lahore", required: true },
-    { id: "email",        label: "Email Address",                 placeholder: "recommender@example.com",     required: false },
-    { id: "relationship", label: "Your relationship to them",     placeholder: "e.g. Class Teacher, Lab Supervisor", required: true },
+    { id: "name",         label: "Recommender's Full Name",         type: "name",  placeholder: "e.g. Dr. Asif Iqbal",               required: true },
+    { id: "designation",  label: "Designation / Title",             type: "alpha", placeholder: "e.g. Associate Professor",           required: true },
+    { id: "department",   label: "Department / Institution",        type: "alpha", placeholder: "e.g. Dept. of CS, FAST Lahore",     required: true },
+    { id: "email",        label: "Email Address",                   type: "email", placeholder: "recommender@example.com",            required: false },
+    { id: "relationship", label: "Your relationship to them",       type: "alpha", placeholder: "e.g. Class Teacher, Lab Supervisor", required: true },
   ];
   return (
     <div className="mt-4 border border-purple-100 bg-purple-50 rounded-lg p-4 space-y-3">
@@ -184,12 +186,13 @@ function RecommenderForm({ info, onChange }) {
             <label className="block text-xs text-purple-700 font-medium mb-1">
               {f.label}{f.required && <span className="text-red-400 ml-1">*</span>}
             </label>
-            <input
-              type="text"
+            <ValidatedInput
+              type={f.type}
               value={info[f.id] || ""}
               onChange={(e) => onChange(f.id, e.target.value)}
               placeholder={f.placeholder}
-              className={base}
+              required={f.required}
+              inputClassName={base}
             />
           </div>
         ))}
@@ -424,6 +427,8 @@ export default function ApplicationPackPage() {
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
+
+        <Breadcrumb />
 
         {/* Header */}
         <div className="mb-6">

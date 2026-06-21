@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, X, Trash2, Bell } from "lucide-react";
 import { toast } from "sonner";
 import AdminLayout from "@/components/AdminLayout";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const EMPTY_FORM = { title: "", message: "", type: "info" };
 
@@ -106,6 +107,7 @@ export default function AdminNotifications() {
   return (
     <AdminLayout>
       <div className="p-6 md:p-8">
+        <Breadcrumb />
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-blue-600">Notifications</h1>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import Breadcrumb from "@/components/Breadcrumb";
 
 export default function AcademicBackgroundPage() {
   const [formData, setFormData] = useState({
@@ -48,6 +49,7 @@ export default function AcademicBackgroundPage() {
       <Navbar />
 
       <main className="max-w-5xl mx-auto px-4 py-10 space-y-8">
+        <Breadcrumb />
         {/* Form Section */}
         <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
           <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-6">

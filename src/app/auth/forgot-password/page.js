@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ValidatedInput from "@/components/ValidatedInput";
+import Breadcrumb from "@/components/Breadcrumb";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -37,6 +38,10 @@ export default function ForgotPasswordPage() {
     <div className="bg-secondary min-h-screen font-inter">
       {/* Header */}
       <Navbar />
+
+      <div className="max-w-md mx-auto px-4 pt-6">
+        <Breadcrumb />
+      </div>
 
       {/* Main Content */}
       <main className="min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">

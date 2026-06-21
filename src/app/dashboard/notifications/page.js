@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell, Clock, BarChart2, Lightbulb, CheckCircle,
-  Megaphone, Trash2, Check, Loader2, ArrowLeft, Inbox,
+  Megaphone, Trash2, Check, Loader2, Inbox,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const TYPE_META = {
   deadline:       { icon: Clock,       color: "text-red-500",    bg: "bg-red-50",    border: "border-red-200"   },
@@ -99,13 +100,7 @@ export default function NotificationsPage() {
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
 
-        {/* Back */}
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6 transition"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </button>
+        <Breadcrumb />
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 

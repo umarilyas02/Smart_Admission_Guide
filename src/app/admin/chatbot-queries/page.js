@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquare, XCircle, RefreshCw, Sparkles } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+import Breadcrumb from "@/components/Breadcrumb";
 
 function formatDate(iso) {
   if (!iso) return "—";
@@ -55,6 +56,7 @@ export default function ChatbotQueries() {
   return (
     <AdminLayout>
       <div className="p-8">
+        <Breadcrumb />
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

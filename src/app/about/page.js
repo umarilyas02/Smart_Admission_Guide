@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import Breadcrumb from "@/components/Breadcrumb";
 
 export default function AboutPage() {
   return (
@@ -13,6 +14,7 @@ export default function AboutPage() {
       <main className="min-h-screen">
         <section className="bg-white py-20">
           <div className="max-w-7xl mx-auto px-6">
+            <Breadcrumb />
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
               About Smart Admission Guide
             </h1>

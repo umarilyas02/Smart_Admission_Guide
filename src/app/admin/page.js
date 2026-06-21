@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import { runScrape } from "@/app/actions/scrape";
+import Breadcrumb from "@/components/Breadcrumb";
 
 function ScrapeSection() {
   const [isPending, startTransition] = useTransition();
@@ -123,6 +124,7 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="p-8">
+        <Breadcrumb />
         <h1 className="text-3xl font-bold text-blue-600 mb-8">
           Admin Dashboard
         </h1>

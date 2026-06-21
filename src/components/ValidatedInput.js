@@ -21,7 +21,8 @@ function isValueEmpty(value) {
 // Type-appropriate default maxLengths
 const DEFAULT_MAX_LENGTH = {
   name:  50,
-  phone: 13,   // covers +923001234567
+  alpha: 100,
+  phone: 10,   // 10 digits after the fixed +92 prefix
   cnic:  15,   // XXXXX-XXXXXXX-X
   otp:   6,
   email: 100,
@@ -52,6 +53,7 @@ export default function ValidatedInput({
   showPasswordStrength = false,
   compareValue,
   maxLength,
+  maxWords,
 }) {
   const [touched, setTouched] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -62,7 +64,7 @@ export default function ValidatedInput({
   // Effective maxLength — prop wins, then type default
   const effectiveMaxLength = maxLength ?? DEFAULT_MAX_LENGTH[type];
 
-  const error   = touched ? validate(type, value, { required, compareValue, min, max }) : null;
+  const error   = touched ? validate(type, value, { required, compareValue, min, max, maxWords }) : null;
   const isValid = touched && !error && !isValueEmpty(value);
 
   const stateKey = error ? "error" : isValid ? "valid" : "default";
@@ -230,11 +232,33 @@ export default function ValidatedInput({
       />
     );
 
+  } else if (type === "phone") {
+    const handlePhoneChange = (e) => {
+      if (e.target.value === "" || /^\d*$/.test(e.target.value)) {
+        setTouched(true);
+        onChange?.(e);
+      }
+    };
+    inputEl = (
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium select-none">
+          +92
+        </span>
+        <input
+          id={fieldId} name={name} type="tel"
+          value={value ?? ""} onChange={handlePhoneChange} onBlur={handleBlur}
+          placeholder={placeholder || "3001234567"} required={required} disabled={disabled}
+          maxLength={effectiveMaxLength} autoComplete="tel"
+          inputMode="numeric"
+          className={`${cls} pl-12`}
+        />
+      </div>
+    );
+
   } else {
-    // text, name, email, phone, cnic, and any other string type
+    // text, name, email, cnic, and any other string type
     const htmlType =
-      type === "email" ? "email" :
-      type === "phone" ? "tel"   : "text";
+      type === "email" ? "email" : "text";
 
     let filteredOnChange = touch;
     if (type === "name") {
@@ -244,9 +268,9 @@ export default function ValidatedInput({
           onChange?.(e);
         }
       };
-    } else if (type === "phone") {
+    } else if (type === "alpha") {
       filteredOnChange = (e) => {
-        if (e.target.value === "" || /^[0-9+\-\s()]*$/.test(e.target.value)) {
+        if (e.target.value === "" || /^[a-zA-Z\s,.\-'()]*$/.test(e.target.value)) {
           setTouched(true);
           onChange?.(e);
         }
@@ -270,8 +294,15 @@ export default function ValidatedInput({
     );
   }
 
-  // Character counter value (skip for select / date / file / password)
-  const showCounter = effectiveMaxLength && !["select", "date", "file", "password", "confirm-password", "otp"].includes(type);
+  // Word counter for textarea + maxWords
+  const showWordCount    = !!maxWords && type === "textarea";
+  const currentWordCount = showWordCount
+    ? String(value ?? "").trim().split(/\s+/).filter(Boolean).length
+    : 0;
+  const atWordLimit = showWordCount && currentWordCount >= maxWords;
+
+  // Character counter (skip for types with word count or where it doesn't apply)
+  const showCounter = !showWordCount && effectiveMaxLength && !["select", "date", "file", "password", "confirm-password", "otp"].includes(type);
   const charCount   = String(value ?? "").length;
   const atLimit     = showCounter && charCount >= effectiveMaxLength;
 
@@ -308,7 +339,7 @@ export default function ValidatedInput({
       )}
 
       {/* Error / hint row — error on left, counter on right */}
-      {(error || hint || showCounter) && (
+      {(error || hint || showCounter || showWordCount) && (
         <div className="flex items-start justify-between mt-1 gap-2">
           <div className="flex-1 min-w-0">
             {error ? (
@@ -323,6 +354,11 @@ export default function ValidatedInput({
             ) : null}
           </div>
 
+          {showWordCount && (
+            <span className={`text-xs shrink-0 tabular-nums ${atWordLimit ? "text-red-500 font-semibold" : "text-gray-400"}`}>
+              {currentWordCount}/{maxWords} words
+            </span>
+          )}
           {showCounter && (
             <span className={`text-xs shrink-0 tabular-nums ${atLimit ? "text-red-500 font-semibold" : "text-gray-400"}`}>
               {charCount}/{effectiveMaxLength}

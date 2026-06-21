@@ -4,6 +4,7 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import Breadcrumb from "@/components/Breadcrumb";
 
 export default function AdmissionProbabilityPage() {
   const [marks, setMarks] = useState({
@@ -36,6 +37,7 @@ export default function AdmissionProbabilityPage() {
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+        <Breadcrumb />
         {/* Calculator Card */}
         <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
           <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-4">

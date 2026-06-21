@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ValidatedInput from "@/components/ValidatedInput";
 import { toast } from "sonner";
+import Breadcrumb from "@/components/Breadcrumb";
 
 export default function StudentsManagement() {
   const router = useRouter();
@@ -70,6 +71,7 @@ export default function StudentsManagement() {
   return (
     <AdminLayout>
       <div className="p-8">
+        <Breadcrumb />
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-blue-600">
             Students Management

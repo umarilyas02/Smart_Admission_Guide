@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Plus, X, BookOpen, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import AdminLayout from "@/components/AdminLayout";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const EMPTY_FORM = {
   university_id: "",
@@ -333,6 +334,7 @@ export default function ProgramsManagement() {
   return (
     <AdminLayout>
       <div className="p-6 md:p-8">
+        <Breadcrumb />
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>

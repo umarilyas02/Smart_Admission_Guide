@@ -7,10 +7,11 @@ import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import {
   User, GraduationCap, ClipboardList, Lightbulb,
-  Check, ChevronRight, Save, ArrowLeft, Loader2, Sparkles,
+  Check, ChevronLeft, ChevronRight, Save, Loader2, Sparkles,
 } from "lucide-react";
 import ValidatedInput from "@/components/ValidatedInput";
 import { authFetch } from "@/lib/authFetch";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const SECTIONS = [
   { id: "personal",  label: "Personal Info",        icon: User,          desc: "Your name and contact details" },
@@ -228,13 +229,7 @@ export default function ProfileProgressPage() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
 
-        {/* Back */}
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6 transition"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </button>
+        <Breadcrumb />
 
         {/* Page title */}
         <div className="mb-6">
@@ -323,6 +318,18 @@ export default function ProfileProgressPage() {
           <div className="lg:col-span-3">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
 
+              {/* Back button — steps 2, 3, 4 */}
+              {activeIdx > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActive(SECTIONS[activeIdx - 1].id)}
+                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition mb-5 -mt-1"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Back
+                </button>
+              )}
+
               {/* ── Personal Info ── */}
               {active === "personal" && (
                 <div>
@@ -342,7 +349,7 @@ export default function ProfileProgressPage() {
                       label="Phone Number"
                       value={form.phone}
                       onChange={e => set("phone", e.target.value)}
-                      placeholder="+92 300 0000000"
+                      placeholder="3001234567"
                       required
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white"
                     />

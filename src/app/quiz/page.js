@@ -10,6 +10,7 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const LEVEL_OPTIONS = [
   { value: "fa",              label: "FA — Faculty of Arts" },
@@ -47,8 +48,6 @@ export default function QuizPage() {
   const [answers, setAnswers]           = useState({});
   const [recommendation, setRecommendation] = useState(null);
   const [errorMsg, setErrorMsg]         = useState("");
-  const [uniResults, setUniResults]     = useState(null);
-  const [uniLoading, setUniLoading]     = useState(false);
 
   // Fetch profile on mount if logged in
   useEffect(() => {
@@ -73,7 +72,6 @@ export default function QuizPage() {
     setAnswers({});
     setRecommendation(null);
     setErrorMsg("");
-    setUniResults(null);
 
     try {
       const res = await fetch("/api/quiz/questions", {
@@ -93,19 +91,6 @@ export default function QuizPage() {
     } catch (err) {
       setErrorMsg(err.message || "Could not generate questions. Please try again.");
       setPhase("error");
-    }
-  };
-
-  const fetchUniversities = async (department) => {
-    setUniLoading(true);
-    try {
-      const res = await fetch(`/api/universities/search?program=${encodeURIComponent(department)}`);
-      const data = await res.json();
-      setUniResults(data.universities || []);
-    } catch {
-      setUniResults([]);
-    } finally {
-      setUniLoading(false);
     }
   };
 
@@ -151,6 +136,10 @@ export default function QuizPage() {
   return (
     <div className="bg-secondary min-h-screen font-inter">
       <Navbar />
+
+      <div className="max-w-2xl mx-auto px-4 pt-6">
+        <Breadcrumb />
+      </div>
 
       <main className="max-w-2xl mx-auto px-4 py-10 min-h-[calc(100vh-80px)] flex flex-col justify-center">
 
@@ -412,59 +401,14 @@ export default function QuizPage() {
               </div>
             </div>
 
-            {uniResults === null && (
-              <div className="text-center pb-2">
-                <button
-                  onClick={() => fetchUniversities(recommendation.primaryDepartment)}
-                  disabled={uniLoading}
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition font-semibold text-sm disabled:opacity-60"
-                >
-                  {uniLoading ? "Searching…" : `See Universities Offering ${recommendation.primaryDepartment}`}
-                </button>
-              </div>
-            )}
-
-            {uniResults !== null && (
-              <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5 text-blue-500" />
-                  Universities Offering {recommendation.primaryDepartment}
-                  <span className="ml-auto text-xs font-normal text-gray-400">{uniResults.length} found</span>
-                </h3>
-                {uniResults.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    No universities found for this program in the database yet.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {uniResults.map((uni) => (
-                      <div key={uni.id} className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-semibold text-gray-800 text-sm">{uni.name}</p>
-                            {uni.location && <p className="text-xs text-gray-500 mt-0.5">{uni.location}</p>}
-                          </div>
-                          {uni.website && (
-                            <a href={uni.website} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline shrink-0">
-                              Visit
-                            </a>
-                          )}
-                        </div>
-                        {uni.programs?.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {uni.programs.map((p) => (
-                              <span key={p.id} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">
-                                {p.name}{p.duration && ` · ${p.duration}`}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="text-center pb-2">
+              <Link
+                href={`/universities?program=${encodeURIComponent(recommendation.primaryDepartment)}`}
+                className="w-full inline-block bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition font-semibold text-sm"
+              >
+                See Universities Offering {recommendation.primaryDepartment}
+              </Link>
+            </div>
 
             <div className="flex gap-3 justify-center pb-4">
               <button

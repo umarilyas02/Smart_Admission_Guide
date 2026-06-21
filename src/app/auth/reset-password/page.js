@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import ValidatedInput from "@/components/ValidatedInput";
+import Breadcrumb from "@/components/Breadcrumb";
 
 function ResetPasswordForm() {
   const [email, setEmail] = useState("");
@@ -45,6 +46,10 @@ function ResetPasswordForm() {
     <div className="bg-secondary min-h-screen font-inter">
       {/* Header */}
       <Navbar />
+
+      <div className="max-w-md mx-auto px-4 pt-6">
+        <Breadcrumb />
+      </div>
 
       {/* Main Content */}
       <main className="min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ValidatedInput from "@/components/ValidatedInput";
+import Breadcrumb from "@/components/Breadcrumb";
 
 export default function AdminSettings() {
   const router = useRouter();
@@ -61,6 +62,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout>
       <div className="p-8">
+        <Breadcrumb />
         <h1 className="text-2xl font-bold text-blue-600 mb-6">
           Admin Settings
         </h1>

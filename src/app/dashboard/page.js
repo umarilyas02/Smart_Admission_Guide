@@ -10,6 +10,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import { authFetch } from "@/lib/authFetch";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const SECTIONS = [
   { id: "personal",  label: "Personal Info",       icon: User },
@@ -72,6 +73,8 @@ export default function DashboardPage() {
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+
+        <Breadcrumb />
 
         {/* Welcome */}
         <div className="mb-8">

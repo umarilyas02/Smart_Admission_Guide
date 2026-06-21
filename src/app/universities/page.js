@@ -6,6 +6,7 @@ import { MapPin, Globe, Calendar, SlidersHorizontal, X, ChevronDown, Search, Rec
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
+import Breadcrumb from "@/components/Breadcrumb";
 
 function formatDate(dateStr) {
   if (!dateStr) return null;
@@ -155,6 +156,8 @@ export default function UniversitiesPage() {
 
       <main className="min-h-screen py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
+
+          <Breadcrumb />
 
           {/* Header */}
           <div className="mb-8">
