@@ -1,30 +1,7 @@
 'use server';
 
-import { readFile, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import { spawn } from 'child_process';
-import path from 'path';
+import { cleanUniversityRows } from '@/lib/university-cleaner';
 import { syncUniversityData } from '@/lib/university-sync';
-
-function getPythonExe() {
-  const winVenv = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
-  const unixVenv = path.join(process.cwd(), '.venv', 'bin', 'python');
-  if (existsSync(winVenv)) return winVenv;
-  if (existsSync(unixVenv)) return unixVenv;
-  return 'python';
-}
-
-function runPython(scriptPath, env) {
-  return new Promise((resolve) => {
-    const proc = spawn(getPythonExe(), [scriptPath], { cwd: process.cwd(), env });
-    let stdout = '';
-    let stderr = '';
-    proc.stdout.on('data', (d) => { stdout += d.toString(); });
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
-    proc.on('close', (code) => resolve({ code, stdout, stderr }));
-    proc.on('error', (err) => resolve({ code: -1, stdout: '', stderr: err.message }));
-  });
-}
 
 export async function runScrape() {
   const workerUrl = process.env.CLOUDFLARE_WORKER_URL;
@@ -39,7 +16,7 @@ export async function runScrape() {
 
   const steps = [
     { label: 'Fetch worker data', status: 'running', detail: workerUrl },
-    { label: 'Write raw data', status: 'pending', detail: '' },
+    { label: 'Prepare payload', status: 'pending', detail: '' },
     { label: 'Clean scraped data', status: 'pending', detail: '' },
     { label: 'Sync database', status: 'pending', detail: '' },
   ];
@@ -57,51 +34,28 @@ export async function runScrape() {
       status: 'done',
       detail: `${rawData?.results?.length || 0} university payloads fetched`,
     };
-    steps[1] = { ...steps[1], status: 'running', detail: 'Saving to data.json' };
+    steps[1] = { ...steps[1], status: 'done', detail: 'Raw payload kept in memory' };
+    steps[2] = { ...steps[2], status: 'running', detail: 'Normalizing worker output in memory' };
   } catch (err) {
     steps[0] = { ...steps[0], status: 'failed', detail: err.message };
     return { success: false, output: '', error: `Could not reach Cloudflare Worker: ${err.message}`, steps };
   }
 
-  const dataPath = path.join(process.cwd(), 'data.json');
-  try {
-    await writeFile(dataPath, JSON.stringify(rawData, null, 2), 'utf-8');
-    steps[1] = { ...steps[1], status: 'done', detail: dataPath };
-    steps[2] = { ...steps[2], status: 'running', detail: 'Running Python cleaner' };
-  } catch (err) {
-    steps[1] = { ...steps[1], status: 'failed', detail: err.message };
-    return { success: false, output: '', error: `Failed to write data.json: ${err.message}`, steps };
-  }
-
-  const scriptPath = path.join(process.cwd(), 'scripts', 'auto_post_clean_data.py');
-  const { code, stdout, stderr } = await runPython(scriptPath, {
-    ...process.env,
-    SKIP_POST: 'true',
-  });
-
-  if (code !== 0) {
-    steps[2] = { ...steps[2], status: 'failed', detail: stderr.trim() || `Exit code ${code}` };
-    return {
-      success: false,
-      output: stdout.trim(),
-      error: stderr.trim() || `Python exited with code ${code}`,
-      steps,
-    };
-  }
-  steps[2] = { ...steps[2], status: 'done', detail: 'clean_data.json generated' };
-  steps[3] = { ...steps[3], status: 'running', detail: 'Writing cleaned data to database' };
-
-  const cleanPath = path.join(process.cwd(), 'clean_data.json');
   let cleaned;
   try {
-    const cleanFile = await readFile(cleanPath, 'utf-8');
-    cleaned = JSON.parse(cleanFile);
+    cleaned = cleanUniversityRows(rawData);
+    steps[2] = {
+      ...steps[2],
+      status: 'done',
+      detail: `${cleaned?.data?.length || 0} cleaned university records ready`,
+    };
+    steps[3] = { ...steps[3], status: 'running', detail: 'Writing cleaned data to database' };
   } catch (err) {
-    steps[3] = { ...steps[3], status: 'failed', detail: `Read failed: ${err.message}` };
+    steps[2] = { ...steps[2], status: 'failed', detail: err.message };
     return {
       success: false,
-      output: stdout.trim(),
-      error: `Failed to read clean_data.json: ${err.message}`,
+      output: '',
+      error: `Failed to clean scraped data: ${err.message}`,
       steps,
     };
   }
@@ -114,18 +68,31 @@ export async function runScrape() {
       detail: `${synced.inserted_count} universities synced`,
     };
 
+    const cleanerSummary = cleaned.summary || {};
+    const output = [
+      `Processed ${cleanerSummary.total_items || 0} payloads`,
+      `Saved ${cleanerSummary.saved || 0}`,
+      `Programs extracted ${cleanerSummary.programs_extracted || 0}`,
+      `Locations found ${cleanerSummary.locations_found || 0}`,
+      `Fee links found ${cleanerSummary.fee_links_found || 0}`,
+      `Dates undeclared ${cleanerSummary.undeclared || 0}`,
+    ].join('\n');
+
     return {
       success: true,
-      output: stdout.trim(),
+      output,
       error: '',
-      sync: synced,
+      sync: {
+        ...synced,
+        cleaner: cleanerSummary,
+      },
       steps,
     };
   } catch (err) {
     steps[3] = { ...steps[3], status: 'failed', detail: err.message };
     return {
       success: false,
-      output: stdout.trim(),
+      output: '',
       error: `Database sync failed: ${err.message}`,
       steps,
     };
