@@ -199,7 +199,7 @@ export default function DashboardPage() {
               Explore universities and check your admission chances based on your marks.
             </p>
             <a
-              href="/recommendation"
+              href="/universities"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 px-5 py-2 rounded-xl hover:bg-blue-700 transition"
             >
               Explore Now <ChevronRight className="w-4 h-4" />
