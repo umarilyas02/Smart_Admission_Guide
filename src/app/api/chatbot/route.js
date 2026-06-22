@@ -5,15 +5,13 @@ import { verifyToken } from '@/lib/auth';
 
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
-// Rate limiting: Max 10 conversations per user per hour
 const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 async function checkRateLimit(userId) {
-  if (!userId) return { allowed: true }; // Anonymous users bypass for now
+  if (!userId) return { allowed: true };
 
   try {
-    // Get count of messages from this user in the last hour
     const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
     const result = await queryOne(
       `SELECT COUNT(*) as count FROM chat_logs
@@ -30,13 +28,9 @@ async function checkRateLimit(userId) {
       };
     }
 
-    return {
-      allowed: true,
-      remaining: RATE_LIMIT_MAX - messageCount,
-    };
+    return { allowed: true, remaining: RATE_LIMIT_MAX - messageCount };
   } catch (err) {
     console.error('Rate limit check failed:', err.message);
-    // Allow request if check fails (fail-open)
     return { allowed: true };
   }
 }
@@ -54,7 +48,6 @@ async function ensureTable() {
   `);
 }
 
-// Fetch all project data from DB to build the context block
 async function buildProjectContext() {
   try {
     const universities = await queryMany(
@@ -182,6 +175,53 @@ function isAdmissionRelated(text) {
   return keywords.some((kw) => lower.includes(kw));
 }
 
+// Fetch additional context from DuckDuckGo Instant Answer API (free, no key required)
+async function fetchWebContext(userQuery) {
+  try {
+    const searchQ = encodeURIComponent(`${userQuery} Pakistan university admissions`);
+    const url = `https://api.duckduckgo.com/?q=${searchQ}&format=json&no_html=1&skip_disambig=1&t=sag`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'SmartAdmissionGuide/1.0' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    const parts = [];
+    if (data.AbstractText) parts.push(`Overview: ${data.AbstractText}`);
+    if (data.Answer) parts.push(`Quick Answer: ${data.Answer}`);
+    const topics = (data.RelatedTopics || [])
+      .filter((t) => t.Text && !t.Topics)
+      .slice(0, 5)
+      .map((t) => `• ${t.Text}`);
+    if (topics.length) parts.push(`Related Information:\n${topics.join('\n')}`);
+
+    return parts.length ? parts.join('\n\n') : null;
+  } catch {
+    return null;
+  }
+}
+
+// System prompt for the web-based response (uses general knowledge + any DDG context)
+function buildWebSystemPrompt(webContext, academicLevel) {
+  const levelNote = academicLevel && ELIGIBLE_PROGRAMS[academicLevel]
+    ? `\n\nThe student completed ${academicLevel.toUpperCase().replace(/_/g, ' ')}. Prioritize programs they are eligible for: ${ELIGIBLE_PROGRAMS[academicLevel]}.`
+    : '';
+
+  const webSection = webContext
+    ? `\n\n=== WEB SEARCH RESULTS ===\n${webContext}\n=== END ===\n\nIncorporate the above web results where relevant in your answer.`
+    : '';
+
+  return `You are SAG AI — an expert assistant for Pakistani university admissions with broad, up-to-date general knowledge.${levelNote}${webSection}
+
+GUIDELINES:
+- Answer using your comprehensive knowledge of Pakistani universities, HEC regulations, admission processes, merit criteria, programs, and fee structures.
+- If web results are provided above, incorporate relevant details from them.
+- Make clear that this is general knowledge — students should verify the latest figures directly with universities or via HEC.
+- Be concise, warm, and student-friendly. Use bullet points for lists.
+- If the question is completely unrelated to education or admissions, gently redirect to admission topics.`;
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -200,7 +240,7 @@ export async function POST(req) {
       if (decoded?.userId) userId = decoded.userId;
     }
 
-    // Check rate limit: Max 10 conversations per user per hour
+    // Check rate limit
     const rateLimitCheck = await checkRateLimit(userId);
     if (!rateLimitCheck.allowed) {
       return NextResponse.json(
@@ -229,40 +269,66 @@ export async function POST(req) {
       } catch { /* non-fatal */ }
     }
 
-    // Build DB context and system prompt
-    const dbContext = await buildProjectContext();
-    const systemPrompt = buildSystemPrompt(dbContext, academicLevel);
-
     const claudeMessages = messages.map((m) => ({
       role: m.role,
       content: m.content,
     }));
 
-    const response = await client.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: claudeMessages,
-    });
+    const model = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
-    const assistantText = response.content[0]?.text || 'Sorry, I could not process that.';
+    // Run DB context fetch + web search in parallel
+    const [dbContext, webContext] = await Promise.all([
+      buildProjectContext(),
+      relevant ? fetchWebContext(userText) : Promise.resolve(null),
+    ]);
 
-    // Persist to chat_logs
+    const dbSystemPrompt = buildSystemPrompt(dbContext, academicLevel);
+    const webSystemPrompt = buildWebSystemPrompt(webContext, academicLevel);
+
+    // Run both Claude calls in parallel — DB-only and web/general-knowledge
+    const [dbResult, webResult] = await Promise.allSettled([
+      client.messages.create({
+        model,
+        max_tokens: 1024,
+        system: dbSystemPrompt,
+        messages: claudeMessages,
+      }),
+      relevant
+        ? client.messages.create({
+            model,
+            max_tokens: 1024,
+            system: webSystemPrompt,
+            messages: claudeMessages,
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const dbResponse =
+      dbResult.status === 'fulfilled'
+        ? dbResult.value?.content[0]?.text || 'Sorry, I could not process that.'
+        : 'Our database is temporarily unavailable.';
+
+    const webResponse =
+      relevant && webResult.status === 'fulfilled' && webResult.value
+        ? webResult.value.content[0]?.text || null
+        : null;
+
+    // Persist DB response to chat_logs
     try {
       await ensureTable();
       await query(
         `INSERT INTO chat_logs (user_id, query, response, relevant) VALUES ($1, $2, $3, $4)`,
-        [userId, userText, assistantText, relevant]
+        [userId, userText, dbResponse, relevant]
       );
     } catch (dbErr) {
       console.error('chat_logs insert error (non-fatal):', dbErr.message);
     }
 
-    // Get updated rate limit info
     const updatedRateLimit = await checkRateLimit(userId);
 
     return NextResponse.json({
-      message: assistantText,
+      dbResponse,
+      webResponse,
       relevant,
       rateLimit: {
         remaining: updatedRateLimit.remaining,

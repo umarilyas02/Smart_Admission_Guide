@@ -13,14 +13,16 @@ import ChatbotWidget from "@/components/ChatbotWidget";
 import Breadcrumb from "@/components/Breadcrumb";
 
 const LEVEL_OPTIONS = [
-  { value: "fa",              label: "FA — Faculty of Arts" },
-  { value: "fsc_medical",     label: "FSc Pre-Medical" },
-  { value: "fsc_engineering", label: "FSc Pre-Engineering" },
-  { value: "ics",             label: "ICS — Computer Science" },
-  { value: "icom",            label: "ICom — Commerce" },
+  { value: "matric",          label: "Matric" },
+  { value: "fa",              label: "Intermediate — FA (Arts)" },
+  { value: "fsc_medical",     label: "Intermediate — FSc Pre-Medical" },
+  { value: "fsc_engineering", label: "Intermediate — FSc Pre-Engineering" },
+  { value: "ics",             label: "Intermediate — ICS (Computer Science)" },
+  { value: "icom",            label: "Intermediate — ICom (Commerce)" },
 ];
 
 const LEVEL_LABELS = {
+  matric:          "Matric",
   fa:              "FA (Arts)",
   fsc_medical:     "FSc Pre-Medical",
   fsc_engineering: "FSc Pre-Engineering",
@@ -43,13 +45,34 @@ export default function QuizPage() {
   const [phase, setPhase]               = useState("welcome");
   const [profile, setProfile]           = useState(null);
   const [selectedLevel, setSelectedLevel] = useState("");
+  const [prefetchedQuestions, setPrefetchedQuestions] = useState(null);
+  const [prefetchLevel, setPrefetchLevel] = useState("");
   const [questions, setQuestions]       = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers]           = useState({});
   const [recommendation, setRecommendation] = useState(null);
   const [errorMsg, setErrorMsg]         = useState("");
 
-  // Fetch profile on mount if logged in
+  const doPrefetch = (profileData, level) => {
+    if (!level || level === "matric") return;
+    setPrefetchLevel(level);
+    setPrefetchedQuestions(null);
+    fetch("/api/quiz/questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        academic_level:     level,
+        matric_marks:       profileData?.student?.matric_marks       ?? null,
+        intermediate_marks: profileData?.student?.intermediate_marks ?? null,
+        interests:          profileData?.student?.interests          ?? null,
+      }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.questions) setPrefetchedQuestions(data.questions); })
+      .catch(() => {});
+  };
+
+  // Fetch profile on mount if logged in; prefetch questions immediately
   useEffect(() => {
     const token = typeof window !== "undefined" && localStorage.getItem("auth_token");
     if (!token) return;
@@ -58,7 +81,11 @@ export default function QuizPage() {
       .then(data => {
         if (!data) return;
         setProfile(data);
-        if (data.student?.academic_level) setSelectedLevel(data.student.academic_level);
+        const level = data.student?.academic_level;
+        if (level) {
+          setSelectedLevel(level);
+          doPrefetch(data, level);
+        }
       })
       .catch(() => {});
   }, []);
@@ -67,12 +94,19 @@ export default function QuizPage() {
 
   const handleStart = async () => {
     if (!effectiveLevel) return;
-    setPhase("generating");
     setCurrentQuestion(0);
     setAnswers({});
     setRecommendation(null);
     setErrorMsg("");
 
+    // Use prefetched questions instantly if they're ready for the same level
+    if (prefetchedQuestions && prefetchLevel === effectiveLevel) {
+      setQuestions(prefetchedQuestions);
+      setPhase("quiz");
+      return;
+    }
+
+    setPhase("generating");
     try {
       const res = await fetch("/api/quiz/questions", {
         method: "POST",
@@ -96,6 +130,9 @@ export default function QuizPage() {
 
   const handleAnswer = (optionIdx) => {
     setAnswers(prev => ({ ...prev, [currentQuestion]: optionIdx }));
+    if (currentQuestion < questions.length - 1) {
+      setTimeout(() => setCurrentQuestion(q => q + 1), 400);
+    }
   };
 
   const handleNext = () => {
@@ -224,12 +261,17 @@ export default function QuizPage() {
               </div>
             </div>
 
+            {prefetchedQuestions && prefetchLevel === effectiveLevel && (
+              <p className="text-xs text-green-600 font-medium text-center mb-2 flex items-center justify-center gap-1">
+                <Check className="w-3.5 h-3.5" /> Questions ready — quiz will start instantly
+              </p>
+            )}
             <button
               onClick={handleStart}
               disabled={!effectiveLevel}
               className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition font-semibold text-base disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Generate My Quiz
+              {prefetchedQuestions && prefetchLevel === effectiveLevel ? "Start Quiz" : "Generate My Quiz"}
             </button>
           </div>
         )}

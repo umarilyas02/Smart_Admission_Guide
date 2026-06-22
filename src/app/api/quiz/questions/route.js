@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
 const LEVEL_LABELS = {
+  matric:          "Matric",
   fa:              "FA (Faculty of Arts)",
   fsc_medical:     "FSc Pre-Medical",
   fsc_engineering: "FSc Pre-Engineering",
@@ -12,6 +13,7 @@ const LEVEL_LABELS = {
 };
 
 const ELIGIBLE_PROGRAMS = {
+  matric:          "Computer Science, Business Administration, Arts & Humanities, Science (Pre-Medical or Pre-Engineering track), Commerce, Social Sciences — based on the Intermediate program they plan to choose",
   fa:              "Mass Communication, Journalism, Law (LLB), Psychology, Economics, Sociology, Social Work, Education, Political Science, English Literature, Fine Arts, International Relations, Islamic Studies, Public Administration, Linguistics, History",
   fsc_medical:     "Medicine (MBBS), Pharmacy, Dentistry, Physiotherapy, Nursing, Biotechnology, Microbiology, Biomedical Sciences, Veterinary Medicine, Public Health, Nutrition & Dietetics",
   fsc_engineering: "Civil Engineering, Mechanical Engineering, Electrical Engineering, Chemical Engineering, Aerospace Engineering, Architecture, Environmental Engineering, Mechatronics Engineering",

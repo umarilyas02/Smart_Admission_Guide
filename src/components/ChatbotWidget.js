@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Send, Sparkles, ChevronDown, Bot, Lock } from "lucide-react";
+import { Send, Sparkles, ChevronDown, Bot, Lock, Database, Globe } from "lucide-react";
 
 const ANON_LIMIT = 1;
 const ANON_STORAGE_KEY = "sag_anon_used";
@@ -9,7 +9,7 @@ const ANON_STORAGE_KEY = "sag_anon_used";
 const WELCOME_MSG = {
   id: "welcome",
   role: "assistant",
-  text: "Hello! I'm **SAG AI**, your smart admission guide.\n\nI can help you with:\n• University merits & eligibility\n• Scholarships & fees\n• Program & campus info\n\nWhat would you like to know?",
+  text: "Hello! I'm **SAG AI**, your smart admission guide.\n\nI can help you with:\n• University merits & eligibility\n• Scholarships & fees\n• Program & campus info\n\nEach answer shows both our **verified database** and a **broader web perspective**.",
 };
 
 function TypingDots() {
@@ -26,21 +26,110 @@ function TypingDots() {
   );
 }
 
+function parseText(text) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) =>
+    p.startsWith("**") && p.endsWith("**") ? (
+      <strong key={i}>{p.slice(2, -2)}</strong>
+    ) : (
+      <span key={i}>{p}</span>
+    )
+  );
+}
+
+function renderLines(text) {
+  return (text || "").split("\n").map((line, i) => (
+    <p key={i} className={line === "" ? "h-2" : ""}>
+      {parseText(line)}
+    </p>
+  ));
+}
+
+function DualMessageBubble({ msg }) {
+  const [activeTab, setActiveTab] = useState("db");
+  const hasWeb = !!msg.webText;
+  const currentText = activeTab === "db" ? msg.dbText : msg.webText;
+
+  return (
+    <div className="flex gap-2 justify-start mb-4">
+      {/* Bot avatar */}
+      <div className="w-7 h-7 rounded-full bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center shrink-0 mt-0.5 shadow">
+        <Bot className="w-3.5 h-3.5 text-white" />
+      </div>
+
+      <div className="max-w-[84%] flex flex-col gap-1.5">
+        {/* Tab switcher — only shown when both responses exist */}
+        {hasWeb && (
+          <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5 shadow-inner">
+            <button
+              onClick={() => setActiveTab("db")}
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md font-semibold transition-all duration-200 ${
+                activeTab === "db"
+                  ? "bg-white text-purple-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Database className="w-3 h-3" />
+              Our Database
+            </button>
+            <button
+              onClick={() => setActiveTab("web")}
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md font-semibold transition-all duration-200 ${
+                activeTab === "web"
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Globe className="w-3 h-3" />
+              From Web
+            </button>
+          </div>
+        )}
+
+        {/* Message card */}
+        <div
+          className={`rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed shadow-sm border transition-colors duration-200 ${
+            activeTab === "db"
+              ? "bg-white border-purple-100 text-gray-700"
+              : "bg-blue-50 border-blue-200 text-gray-700"
+          }`}
+        >
+          {/* Source label */}
+          <div
+            className={`flex items-center gap-1.5 text-xs font-semibold mb-2.5 pb-2 border-b ${
+              activeTab === "db"
+                ? "text-purple-600 border-purple-100"
+                : "text-blue-600 border-blue-200"
+            }`}
+          >
+            {activeTab === "db" ? (
+              <>
+                <Database className="w-3 h-3" />
+                Verified — from our live database
+              </>
+            ) : (
+              <>
+                <Globe className="w-3 h-3" />
+                Broader context — verify with university
+              </>
+            )}
+          </div>
+
+          {renderLines(currentText)}
+
+          {msg.time && (
+            <p className="text-xs mt-2 text-gray-400">{msg.time}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ msg }) {
+  if (msg.isDual) return <DualMessageBubble msg={msg} />;
+
   const isUser = msg.role === "user";
-
-  const renderText = (text) => {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((p, i) =>
-      p.startsWith("**") && p.endsWith("**") ? (
-        <strong key={i}>{p.slice(2, -2)}</strong>
-      ) : (
-        <span key={i}>{p}</span>
-      )
-    );
-  };
-
-  const lines = (msg.text || "").split("\n");
 
   return (
     <div className={`flex gap-2 ${isUser ? "justify-end" : "justify-start"} mb-3`}>
@@ -56,9 +145,9 @@ function MessageBubble({ msg }) {
             : "bg-white border border-gray-100 text-gray-700 rounded-tl-sm"
         }`}
       >
-        {lines.map((line, i) => (
+        {(msg.text || "").split("\n").map((line, i) => (
           <p key={i} className={line === "" ? "h-2" : ""}>
-            {renderText(line)}
+            {parseText(line)}
           </p>
         ))}
         {msg.time && (
@@ -83,7 +172,7 @@ function AnonGate() {
         <Lock className="w-5 h-5 text-purple-600" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-gray-800">You've used your free question</p>
+        <p className="text-sm font-semibold text-gray-800">You&apos;ve used your free question</p>
         <p className="text-xs text-gray-500 mt-1">Log in or sign up to keep chatting with SAG AI.</p>
       </div>
       <div className="flex gap-2 w-full">
@@ -119,7 +208,6 @@ export default function ChatbotWidget() {
     const checkAuth = () => {
       const token = localStorage.getItem("auth_token");
       setIsLoggedIn(!!token);
-      // If user logs in, lift the anon block
       if (token) setAnonBlocked(false);
     };
     checkAuth();
@@ -127,7 +215,6 @@ export default function ChatbotWidget() {
     return () => window.removeEventListener("storage", checkAuth);
   }, []);
 
-  // Check if anon limit already hit from a previous session
   useEffect(() => {
     if (!isLoggedIn) {
       const used = parseInt(localStorage.getItem(ANON_STORAGE_KEY) || "0", 10);
@@ -135,7 +222,6 @@ export default function ChatbotWidget() {
     }
   }, [isLoggedIn]);
 
-  // Listen for open-chatbot event from the homepage button
   useEffect(() => {
     const handler = () => setIsOpen(true);
     window.addEventListener("open-chatbot", handler);
@@ -156,10 +242,14 @@ export default function ChatbotWidget() {
   const getTime = () =>
     new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
+  // Build conversation history for the API — use DB text for assistant turns (more accurate)
   const buildHistory = (msgs) =>
     msgs
       .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({ role: m.role, content: m.text }));
+      .map((m) => ({
+        role: m.role,
+        content: m.isDual ? (m.dbText || m.text || "") : (m.text || ""),
+      }));
 
   const handleSend = async () => {
     const text = input.trim();
@@ -185,16 +275,24 @@ export default function ChatbotWidget() {
       });
 
       const data = await res.json();
+
+      const dbText = data.dbResponse || data.message || "Sorry, something went wrong.";
+      const webText = data.webResponse || null;
+      const isDual = !!webText && webText !== dbText;
+
       const botMsg = {
         id: Date.now() + 1,
         role: "assistant",
-        text: data.message || "Sorry, something went wrong.",
+        isDual,
+        dbText,
+        webText: isDual ? webText : null,
+        text: dbText,
         time: getTime(),
       };
+
       setMessages((prev) => [...prev, botMsg]);
       if (!isOpen) setHasUnread(true);
 
-      // After receiving the reply, check if anon limit is reached
       if (!token) {
         const used = parseInt(localStorage.getItem(ANON_STORAGE_KEY) || "0", 10) + 1;
         localStorage.setItem(ANON_STORAGE_KEY, String(used));
@@ -229,29 +327,35 @@ export default function ChatbotWidget() {
       {/* Chat window */}
       {isOpen && (
         <div
-          className="w-90 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-100"
-          style={{ height: "520px", boxShadow: "0 20px 60px rgba(109,40,217,0.15)" }}
+          className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-100"
+          style={{ width: "400px", height: "560px", boxShadow: "0 20px 60px rgba(109,40,217,0.15)" }}
         >
           {/* Header */}
-          <div className="bg-linear-to-r from-purple-600 to-indigo-600 p-4 flex items-center gap-3">
+          <div className="bg-linear-to-r from-purple-600 to-indigo-600 p-4 flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-white font-bold text-base tracking-tight">SAG AI</p>
-                <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">
+                <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium shrink-0">
                   Beta
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                <p className="text-purple-200 text-xs">Smart Admission Guide AI</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shrink-0" />
+                <p className="text-purple-200 text-xs truncate">Smart Admission Guide AI</p>
               </div>
+            </div>
+            {/* Dual-source indicator */}
+            <div className="flex items-center gap-1 shrink-0 bg-white/10 rounded-lg px-2 py-1">
+              <Database className="w-3 h-3 text-white/80" />
+              <span className="text-white/60 text-xs">+</span>
+              <Globe className="w-3 h-3 text-white/80" />
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-white/70 hover:text-white transition p-1 rounded-lg hover:bg-white/10"
+              className="text-white/70 hover:text-white transition p-1 rounded-lg hover:bg-white/10 shrink-0"
             >
               <ChevronDown className="w-5 h-5" />
             </button>
@@ -279,39 +383,35 @@ export default function ChatbotWidget() {
           {showGate ? (
             <AnonGate />
           ) : (
-            <>
-
-              {/* Input */}
-              <div className="p-3 bg-white border-t border-gray-100">
-                {!isLoggedIn && (
-                  <p className="text-center text-xs text-amber-600 mb-2">
-                    <a href="/auth?mode=login" className="underline font-medium">Log in</a> for extra credits.
-                  </p>
-                )}
-                <div className="flex items-end gap-2 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-100 transition p-1 pl-3">
-                  <textarea
-                    ref={inputRef}
-                    rows={1}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKey}
-                    placeholder="Ask about admissions..."
-                    className="flex-1 bg-transparent text-sm text-gray-700 resize-none focus:outline-none py-1.5 placeholder-gray-400 max-h-24"
-                    style={{ lineHeight: "1.5" }}
-                  />
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isTyping}
-                    className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white disabled:opacity-40 hover:from-purple-700 hover:to-indigo-700 transition shrink-0 mb-0.5"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <p className="text-center text-xs text-gray-400 mt-1.5">
-                  Powered by <span className="font-medium text-purple-500">SAG AI</span>
+            <div className="p-3 bg-white border-t border-gray-100 shrink-0">
+              {!isLoggedIn && (
+                <p className="text-center text-xs text-amber-600 mb-2">
+                  <a href="/auth?mode=login" className="underline font-medium">Log in</a> for extra credits.
                 </p>
+              )}
+              <div className="flex items-end gap-2 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-100 transition p-1 pl-3">
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder="Ask about admissions..."
+                  className="flex-1 bg-transparent text-sm text-gray-700 resize-none focus:outline-none py-1.5 placeholder-gray-400 max-h-24"
+                  style={{ lineHeight: "1.5" }}
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isTyping}
+                  className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white disabled:opacity-40 hover:from-purple-700 hover:to-indigo-700 transition shrink-0 mb-0.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
               </div>
-            </>
+              <p className="text-center text-xs text-gray-400 mt-1.5">
+                Powered by <span className="font-medium text-purple-500">SAG AI</span>
+              </p>
+            </div>
           )}
         </div>
       )}

@@ -277,10 +277,13 @@ export default function ValidatedInput({
       };
     } else if (type === "cnic") {
       filteredOnChange = (e) => {
-        if (e.target.value === "" || /^[\d-]*$/.test(e.target.value)) {
-          setTouched(true);
-          onChange?.(e);
-        }
+        const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
+        let formatted = digits.slice(0, 5);
+        if (digits.length > 5) formatted += "-" + digits.slice(5, 12);
+        if (digits.length > 12) formatted += "-" + digits.slice(12, 13);
+        const syntheticEvent = { ...e, target: { ...e.target, value: formatted } };
+        setTouched(true);
+        onChange?.(syntheticEvent);
       };
     }
 

@@ -32,6 +32,11 @@ const TEST_TYPES = [
 
 // Interest suggestion chips per education level
 const INTEREST_CHIPS = {
+  matric: [
+    "Mathematics & Logic", "Science & Experiments", "Arts & Creativity",
+    "Commerce & Business Basics", "Literature & Languages", "Social Studies",
+    "Computer Basics", "Islamic Studies", "Sports & Physical Education",
+  ],
   fa: [
     "Literature & Creative Writing", "History & Civilization", "Urdu Language & Poetry",
     "English Literature", "Political Science", "Sociology & Social Work",
@@ -67,6 +72,7 @@ const INTEREST_CHIPS = {
 
 // Which tests are relevant for each education level
 const TESTS_FOR_LEVEL = {
+  matric:          ["none"],
   fsc_medical:     ["none", "mdcat", "nums", "other"],
   fsc_engineering: ["none", "ecat",  "nts_nat", "other"],
   ics:             ["none", "ecat",  "nts_nat", "gat", "other"],
@@ -82,7 +88,7 @@ function getRelevantTests(academic_level) {
 
 function isSectionComplete(id, f) {
   if (id === "personal")  return !!(f.name?.trim() && f.phone?.trim());
-  if (id === "academic")  return !!(f.academic_level && f.matric_marks && f.intermediate_marks);
+  if (id === "academic")  return !!(f.academic_level && f.matric_marks && (f.academic_level === "matric" || f.intermediate_marks));
   if (id === "test")      return !!(f.test_type && (f.test_type === "none" || f.test_score));
   if (id === "interests") return !!f.interests?.trim();
   return false;
@@ -97,7 +103,7 @@ function getMissingFields(id, f) {
   if (id === "academic") {
     if (!f.academic_level)     missing.push("Education Level");
     if (!f.matric_marks)       missing.push("Matric Marks");
-    if (!f.intermediate_marks) missing.push("Intermediate Marks");
+    if (f.academic_level && f.academic_level !== "matric" && !f.intermediate_marks) missing.push("Intermediate Marks");
   }
   if (id === "test") {
     if (!f.test_type)                                   missing.push("Test Type");
@@ -381,11 +387,12 @@ export default function ProfileProgressPage() {
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
                     >
                       <option value="">Select your current level</option>
-                      <option value="fsc_medical">FSc Pre-Medical</option>
-                      <option value="fsc_engineering">FSc Pre-Engineering</option>
-                      <option value="ics">ICS (Computer Science)</option>
-                      <option value="icom">ICom (Commerce)</option>
-                      <option value="fa">FA (Arts)</option>
+                      <option value="matric">Matric</option>
+                      <option value="fsc_medical">Intermediate — FSc Pre-Medical</option>
+                      <option value="fsc_engineering">Intermediate — FSc Pre-Engineering</option>
+                      <option value="ics">Intermediate — ICS (Computer Science)</option>
+                      <option value="icom">Intermediate — ICom (Commerce)</option>
+                      <option value="fa">Intermediate — FA (Arts)</option>
                     </ValidatedInput>
 
                     <div className="grid sm:grid-cols-2 gap-5">
@@ -403,20 +410,22 @@ export default function ProfileProgressPage() {
                         suffix="%"
                         inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
                       />
-                      <ValidatedInput
-                        type="percentage"
-                        label="Intermediate Marks (%)"
-                        value={form.intermediate_marks}
-                        onChange={e => set("intermediate_marks", e.target.value)}
-                        min={33}
-                        max={100}
-                        maxLength={6}
-                        placeholder="e.g. 78.0"
-                        required
-                        hint="Enter percentage (33–100)"
-                        suffix="%"
-                        inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
-                      />
+                      {form.academic_level !== "matric" && (
+                        <ValidatedInput
+                          type="percentage"
+                          label="Intermediate Marks (%)"
+                          value={form.intermediate_marks}
+                          onChange={e => set("intermediate_marks", e.target.value)}
+                          min={33}
+                          max={100}
+                          maxLength={6}
+                          placeholder="e.g. 78.0"
+                          required
+                          hint="Enter percentage (33–100)"
+                          suffix="%"
+                          inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
+                        />
+                      )}
                     </div>
 
                     {/* Marks meter */}
@@ -425,7 +434,7 @@ export default function ProfileProgressPage() {
                         {form.matric_marks && (
                           <MarksBar label="Matric" value={parseFloat(form.matric_marks)} />
                         )}
-                        {form.intermediate_marks && (
+                        {form.academic_level !== "matric" && form.intermediate_marks && (
                           <MarksBar label="Intermediate" value={parseFloat(form.intermediate_marks)} />
                         )}
                       </div>

@@ -28,10 +28,11 @@ export const admissionFormSections = [
     fields: [
       { id: 'schoolName',     label: 'School Name',               type: 'alpha',  placeholder: 'e.g. Government High School, Lahore', required: false, span: true },
       { id: 'matricBoard',    label: 'Matric Board',              type: 'select', options: ['', 'Federal Board', 'Lahore Board', 'Karachi Board', 'Rawalpindi Board', 'Gujranwala Board', 'Faisalabad Board', 'Multan Board', 'Bahawalpur Board', 'DG Khan Board', 'Sargodha Board', 'Sahiwal Board', 'Other'], required: true },
-      { id: 'matricRollNo',   label: 'Matric Roll Number',        type: 'text',   placeholder: 'e.g. 123456',  required: false },
+      { id: 'matricRollNo',   label: 'Matric Roll Number',        type: 'number', placeholder: 'e.g. 123456',  min: 1, max: 9999999, required: true },
       { id: 'matricYear',     label: 'Matric Passing Year',       type: 'number', placeholder: '2023',         required: true },
       { id: 'matricTotal',    label: 'Matric Total Marks',        type: 'number', placeholder: '1100',         required: true },
       { id: 'matricObtained', label: 'Matric Obtained Marks',     type: 'number', placeholder: '950',          required: true },
+      { id: 'matricGroup',    label: 'Matric Group/Major',        type: 'select', options: ['', 'Science', 'Arts', 'Commerce', 'Other'], required: false },
       { id: 'collegeName',    label: 'College Name',              type: 'alpha',  placeholder: 'e.g. Punjab College, Lahore', required: false, span: true },
       { id: 'interBoard',     label: 'Intermediate Board',        type: 'select', options: ['', 'Federal Board', 'Lahore Board', 'Karachi Board', 'Rawalpindi Board', 'Gujranwala Board', 'Faisalabad Board', 'Multan Board', 'Bahawalpur Board', 'DG Khan Board', 'Sargodha Board', 'Sahiwal Board', 'Other'], required: true },
       { id: 'interRollNo',    label: 'Intermediate Roll Number',  type: 'text',   placeholder: 'e.g. 654321',  required: false },
@@ -63,16 +64,6 @@ export const admissionFormSections = [
       { id: 'program3',         label: '3rd Choice — Program',     type: 'alpha',  placeholder: 'e.g. BS IT',                   required: false },
       { id: 'shiftPreference',  label: 'Shift Preference',         type: 'select', options: ['', 'Morning', 'Evening', 'No Preference'], required: false },
       { id: 'scholarshipApply', label: 'Applying for Scholarship?', type: 'select', options: ['', 'Yes — Need-based', 'Yes — Merit-based', 'Yes — Both', 'No'], required: false },
-    ],
-  },
-  {
-    id: 'additional',
-    title: 'E — Additional Information',
-    fields: [
-      { id: 'achievements', label: 'Academic / Extracurricular Achievements', type: 'textarea', rows: 3, placeholder: 'Awards, positions, competitions, certifications...', required: false, span: true, maxWords: 100 },
-      { id: 'motivation',   label: 'Why do you want to study this program?',  type: 'textarea', rows: 4, placeholder: 'Explain your interest and how it aligns with your goals...', required: false, span: true, maxWords: 100 },
-      { id: 'careerGoals',  label: 'Career Goals',                            type: 'textarea', rows: 3, placeholder: 'What do you want to do after graduating?',          required: false, span: true, maxWords: 100 },
-      { id: 'extraInfo',    label: 'Any other information to share?',         type: 'textarea', rows: 2, placeholder: 'Disabilities, special circumstances, etc.',         required: false, span: true, maxWords: 100 },
     ],
   },
 ];
