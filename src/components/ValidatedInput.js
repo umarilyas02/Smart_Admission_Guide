@@ -52,8 +52,12 @@ export default function ValidatedInput({
   children,
   showPasswordStrength = false,
   compareValue,
+  minLength,
   maxLength,
   maxWords,
+  allowedPattern,
+  allowedPatternMessage,
+  inputMode,
 }) {
   const [touched, setTouched] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -63,8 +67,19 @@ export default function ValidatedInput({
 
   // Effective maxLength — prop wins, then type default
   const effectiveMaxLength = maxLength ?? DEFAULT_MAX_LENGTH[type];
+  let compiledPattern = null;
+  if (allowedPattern instanceof RegExp) {
+    compiledPattern = allowedPattern;
+  } else if (typeof allowedPattern === "string" && allowedPattern) {
+    try {
+      compiledPattern = new RegExp(allowedPattern);
+    } catch {
+      compiledPattern = null;
+    }
+  }
+  const acceptsPattern = (candidate) => !compiledPattern || compiledPattern.test(candidate);
 
-  const error   = touched ? validate(type, value, { required, compareValue, min, max, maxWords }) : null;
+  const error   = touched ? validate(type, value, { required, compareValue, min, max, minLength, maxLength, maxWords, allowedPattern, allowedPatternMessage }) : null;
   const isValid = touched && !error && !isValueEmpty(value);
 
   const stateKey = error ? "error" : isValid ? "valid" : "default";
@@ -108,10 +123,16 @@ export default function ValidatedInput({
   let inputEl;
 
   if (type === "textarea") {
+    const handleTextareaChange = (e) => {
+      if (acceptsPattern(e.target.value)) {
+        setTouched(true);
+        onChange?.(e);
+      }
+    };
     inputEl = (
       <textarea
         id={fieldId} name={name} value={value ?? ""}
-        onChange={touch} onBlur={handleBlur}
+        onChange={handleTextareaChange} onBlur={handleBlur}
         placeholder={placeholder} required={required} disabled={disabled}
         rows={rows} autoComplete={autoComplete} maxLength={effectiveMaxLength}
         className={`${cls} resize-none`}
@@ -164,7 +185,7 @@ export default function ValidatedInput({
     };
     inputEl = (
       <input
-        id={fieldId} name={name} type="text" inputMode="numeric"
+        id={fieldId} name={name} type="text" inputMode={inputMode || "numeric"}
         value={value ?? ""} onChange={handleOtpChange} onBlur={handleBlur}
         placeholder={placeholder || "000000"} required={required} disabled={disabled}
         maxLength={effectiveMaxLength} autoComplete="one-time-code"
@@ -199,7 +220,7 @@ export default function ValidatedInput({
       <div className="relative">
         <input
           id={fieldId} name={name} type="text"
-          inputMode={isDecimal ? "decimal" : "numeric"}
+          inputMode={inputMode || (isDecimal ? "decimal" : "numeric")}
           value={value ?? ""} onChange={handleNumericChange} onBlur={handleBlur}
           placeholder={placeholder} required={required} disabled={disabled}
           maxLength={effectiveMaxLength} autoComplete={autoComplete}
@@ -249,7 +270,7 @@ export default function ValidatedInput({
           value={value ?? ""} onChange={handlePhoneChange} onBlur={handleBlur}
           placeholder={placeholder || "3001234567"} required={required} disabled={disabled}
           maxLength={effectiveMaxLength} autoComplete="tel"
-          inputMode="numeric"
+          inputMode={inputMode || "numeric"}
           className={`${cls} pl-12`}
         />
       </div>
@@ -263,14 +284,14 @@ export default function ValidatedInput({
     let filteredOnChange = touch;
     if (type === "name") {
       filteredOnChange = (e) => {
-        if (e.target.value === "" || /^[a-zA-Z\s.\-']*$/.test(e.target.value)) {
+        if ((e.target.value === "" || /^[a-zA-Z\s.\-']*$/.test(e.target.value)) && acceptsPattern(e.target.value)) {
           setTouched(true);
           onChange?.(e);
         }
       };
     } else if (type === "alpha") {
       filteredOnChange = (e) => {
-        if (e.target.value === "" || /^[a-zA-Z\s,.\-'()]*$/.test(e.target.value)) {
+        if ((e.target.value === "" || /^[a-zA-Z\s,.\-'()]*$/.test(e.target.value)) && acceptsPattern(e.target.value)) {
           setTouched(true);
           onChange?.(e);
         }
@@ -293,6 +314,7 @@ export default function ValidatedInput({
         value={value ?? ""} onChange={filteredOnChange} onBlur={handleBlur}
         placeholder={placeholder} required={required} disabled={disabled}
         maxLength={effectiveMaxLength} autoComplete={autoComplete} className={cls}
+        inputMode={inputMode}
       />
     );
   }
@@ -344,7 +366,7 @@ export default function ValidatedInput({
       {/* Error / hint row — error on left, counter on right */}
       {(error || hint || showCounter || showWordCount) && (
         <div className="flex items-start justify-between mt-1 gap-2">
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 space-y-0.5">
             {error ? (
               <p className="text-red-500 text-xs flex items-center gap-1">
                 <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -352,8 +374,9 @@ export default function ValidatedInput({
                 </svg>
                 {error}
               </p>
-            ) : hint ? (
-              <p className="text-gray-400 text-xs">{hint}</p>
+            ) : null}
+            {hint ? (
+              <p className="text-gray-400 text-xs leading-relaxed">{hint}</p>
             ) : null}
           </div>
 

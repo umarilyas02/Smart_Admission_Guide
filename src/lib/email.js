@@ -1,16 +1,22 @@
 import nodemailer from 'nodemailer';
 
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
+const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
+const SMTP_USER = process.env.EMAIL_MAIL || process.env.EMAIL_USER;
+const SMTP_PASS = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
+
 const transporter = nodemailer.createTransport({
-  host:   process.env.SMTP_HOST || 'smtp.gmail.com',
-  port:   parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: SMTP_SECURE,
   auth: {
-    user: process.env.EMAIL_MAIL  || process.env.EMAIL_USER,
-    pass: process.env.SMTP_PASS   || process.env.EMAIL_PASSWORD,
+    user: SMTP_USER,
+    pass: SMTP_PASS,
   },
 });
 
-const FROM = `"Smart Admission Guide" <${process.env.EMAIL_MAIL || process.env.EMAIL_USER}>`;
+const FROM = `"Smart Admission Guide" <${SMTP_USER}>`;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 /* ── Shared HTML shell ── */

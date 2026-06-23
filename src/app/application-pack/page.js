@@ -12,6 +12,7 @@ import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ValidatedInput from "@/components/ValidatedInput";
 import Breadcrumb from "@/components/Breadcrumb";
+import { validateAdmissionForm } from "@/lib/admission-form-validation";
 
 /* ── helpers ── */
 function pct(obtained, total) {
@@ -34,9 +35,10 @@ function FieldInput({ field, value, onChange }) {
     return (
       <ValidatedInput
         type="select"
-        value={value || ""}
+        value={value ?? ""}
         onChange={onChange}
         required={field.required}
+        hint={field.hint}
         inputClassName={`${PACK_INPUT_CLS} appearance-none pr-10`}
       >
         {field.options.map((opt) => (
@@ -49,12 +51,16 @@ function FieldInput({ field, value, onChange }) {
     return (
       <ValidatedInput
         type="textarea"
-        value={value || ""}
+        value={value ?? ""}
         onChange={onChange}
         placeholder={field.placeholder}
         required={field.required}
         rows={field.rows || 3}
         maxWords={field.maxWords}
+        maxLength={field.maxLength}
+        hint={field.hint}
+        allowedPattern={field.allowedPattern}
+        allowedPatternMessage={field.allowedPatternMessage}
         inputClassName={`${PACK_INPUT_CLS} resize-none`}
       />
     );
@@ -62,10 +68,17 @@ function FieldInput({ field, value, onChange }) {
   return (
     <ValidatedInput
       type={SEMANTIC_TYPE[field.type] || field.type}
-      value={value || ""}
+      value={value ?? ""}
       onChange={onChange}
       placeholder={field.placeholder}
       required={field.required}
+      min={field.min}
+      max={field.max}
+      maxLength={field.maxLength}
+      hint={field.hint}
+      allowedPattern={field.allowedPattern}
+      allowedPatternMessage={field.allowedPatternMessage}
+      inputMode={field.inputMode}
       inputClassName={PACK_INPUT_CLS}
     />
   );
@@ -358,6 +371,11 @@ export default function ApplicationPackPage() {
   const handleSave = async () => {
     const token = localStorage.getItem("auth_token");
     if (!token) { router.push("/auth?mode=login"); return; }
+    const validation = validateAdmissionForm(formData);
+    if (!validation.valid) {
+      setError(Object.values(validation.errors)[0] || "Please fix the highlighted fields first.");
+      return;
+    }
     try {
       setSaving(true);
       const res  = await fetch("/api/admission-form", {
@@ -367,7 +385,7 @@ export default function ApplicationPackPage() {
       });
       const data = await res.json();
       if (res.ok) { setSuccess("Form saved!"); setTimeout(() => setSuccess(""), 3000); }
-      else        { setError(data.error || "Failed to save form"); }
+      else        { setError(data.error || Object.values(data.errors || {})[0] || "Failed to save form"); }
     } catch { setError("Failed to save form"); }
     finally { setSaving(false); }
   };
@@ -375,6 +393,11 @@ export default function ApplicationPackPage() {
   const generateDocument = async (documentType) => {
     const token = localStorage.getItem("auth_token");
     if (!token) { router.push("/auth?mode=login"); return; }
+    const validation = validateAdmissionForm(formData);
+    if (!validation.valid) {
+      setError(Object.values(validation.errors)[0] || "Please fix the highlighted fields first.");
+      return;
+    }
     try {
       setGenerating((p) => ({ ...p, [documentType]: true }));
       setError("");
@@ -399,7 +422,7 @@ export default function ApplicationPackPage() {
         setGeneratedDocuments((p) => [...new Set([...p, documentType])]);
       } else {
         const data = await res.json();
-        setError(data.error || `Failed to generate ${documentType}`);
+        setError(data.error || Object.values(data.errors || {})[0] || `Failed to generate ${documentType}`);
       }
     } catch { setError("Failed to generate document"); }
     finally { setGenerating((p) => ({ ...p, [documentType]: false })); }

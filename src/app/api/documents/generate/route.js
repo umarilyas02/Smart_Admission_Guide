@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { verifyToken } from '@/lib/auth';
 import { query, queryOne } from '@/lib/db';
+import { validateAdmissionForm } from '@/lib/admission-form-validation';
 import {
   generateAdmissionFormPDF,
   generateMotivationLetterPDF,
@@ -79,14 +80,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Form data is required' }, { status: 400 });
     }
 
-    // Ensure student row exists
-    await query(
-      `INSERT INTO students (user_id, created_at, updated_at)
-       VALUES ($1, NOW(), NOW()) ON CONFLICT (user_id) DO NOTHING`,
-      [userId]
-    );
-
-    const student = await queryOne(
+    let student = await queryOne(
       'SELECT id, application_form FROM students WHERE user_id = $1',
       [userId]
     );
@@ -96,6 +90,26 @@ export async function POST(req) {
       ...(student?.application_form || {}),
       ...formData,
     };
+    const validation = validateAdmissionForm(mergedFormData);
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0] || 'Please fix the highlighted fields first.';
+      return NextResponse.json(
+        { error: firstError, errors: validation.errors },
+        { status: 400 }
+      );
+    }
+    if (!student) {
+      await query(
+        `INSERT INTO students (user_id, created_at, updated_at)
+         VALUES ($1, NOW(), NOW()) ON CONFLICT (user_id) DO NOTHING`,
+        [userId]
+      );
+
+      student = await queryOne(
+        'SELECT id, application_form FROM students WHERE user_id = $1',
+        [userId]
+      );
+    }
 
     // ── One-time limit for motivation-letter ──
     if (documentType === 'motivation-letter') {

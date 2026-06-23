@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { query, queryOne, queryMany } from '@/lib/db';
+import { validateAdmissionForm } from '@/lib/admission-form-validation';
 
 function getUserId(req) {
   const auth = req.headers.get('authorization') || '';
@@ -58,6 +59,14 @@ export async function POST(req) {
 
   try {
     const formData = await req.json();
+    const validation = validateAdmissionForm(formData);
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0] || 'Please fix the highlighted fields first.';
+      return NextResponse.json(
+        { error: firstError, errors: validation.errors },
+        { status: 400 }
+      );
+    }
     const { fullName, phone, academicLevel, gpaOrMarks } = formData;
 
     if (fullName?.trim()) {
