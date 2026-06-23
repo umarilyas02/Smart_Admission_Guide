@@ -29,6 +29,7 @@ const SEMANTIC_TYPE = {
 };
 
 const PACK_INPUT_CLS = "px-3 py-2 rounded-md text-sm text-gray-900 placeholder:text-gray-400 bg-white";
+const INTERMEDIATE_BENCHMARK = 70;
 
 function FieldInput({ field, value, onChange }) {
   if (field.type === "select") {
@@ -428,6 +429,11 @@ export default function ApplicationPackPage() {
     finally { setGenerating((p) => ({ ...p, [documentType]: false })); }
   };
 
+  const intermediatePct =
+    formData.interObtained && formData.interTotal
+      ? parseFloat(pct(formData.interObtained, formData.interTotal))
+      : null;
+
   if (loading) {
     return (
       <div className="bg-gray-50 min-h-screen">
@@ -564,10 +570,10 @@ export default function ApplicationPackPage() {
               <div className="bg-white border border-gray-200 rounded-lg p-4">
                 <p className="text-xs font-semibold text-gray-500 mb-1">Your Intermediate %</p>
                 <p className="text-3xl font-bold text-blue-600">{pct(formData.interObtained, formData.interTotal)}%</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {parseFloat(pct(formData.interObtained, formData.interTotal)) >= 70
-                    ? "✅ Above the typical 70% minimum for top engineering universities."
-                    : "⚠️ Most top engineering universities require ≥70%."}
+                <p className="text-xs text-gray-500 mt-1 leading-snug">
+                  {intermediatePct >= INTERMEDIATE_BENCHMARK
+                    ? `Above the common ${INTERMEDIATE_BENCHMARK}% benchmark used by many programs.`
+                    : `Below the common ${INTERMEDIATE_BENCHMARK}% benchmark used by many programs.`}
                 </p>
               </div>
             )}
