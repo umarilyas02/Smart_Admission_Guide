@@ -193,11 +193,14 @@ export default function UniversitiesPage() {
       // City filter
       if (cityFilter && u.location?.trim() !== cityFilter) return false;
 
-      // Program filter
+      // Program filter — normalize spaces/hyphens so "Cybersecurity" matches "Cyber Security"
       if (programFilter) {
-        const match = u.programs?.some((p) =>
-          p.name.toLowerCase().includes(programFilter.toLowerCase())
-        );
+        const normalize = (s) => s.toLowerCase().replace(/[\s-]+/g, "");
+        const filterNorm = normalize(programFilter);
+        const match = u.programs?.some((p) => {
+          const name = p.name.toLowerCase();
+          return name.includes(programFilter.toLowerCase()) || normalize(p.name).includes(filterNorm);
+        });
         if (!match) return false;
       }
 

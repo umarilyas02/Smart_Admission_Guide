@@ -21,8 +21,8 @@ const SECTIONS = [
 
 function isSectionComplete(id, u, s) {
   if (id === "personal")  return !!(u?.name?.trim() && s?.phone);
-  if (id === "academic")  return !!(s?.academic_level && s?.matric_marks != null && s?.intermediate_marks != null);
-  if (id === "test")      return s?.test_score != null;
+  if (id === "academic")  return !!(s?.academic_level && s?.matric_type && s?.matric_marks != null && s?.intermediate_marks != null);
+  if (id === "test")      return !!(s?.test_type && (s.test_type === "none" || s.test_score != null));
   if (id === "interests") return !!s?.interests?.trim();
   return false;
 }
@@ -33,9 +33,10 @@ function calcCompletion(u, s) {
 }
 
 export default function DashboardPage() {
-  const [loading,  setLoading]  = useState(true);
-  const [userData, setUserData] = useState(null);
-  const [student,  setStudent]  = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [userData,   setUserData]   = useState(null);
+  const [student,    setStudent]    = useState(null);
+  const [savedCount, setSavedCount] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function DashboardPage() {
       .then(data => {
         setUserData(data.user || null);
         setStudent(data.student || null);
+        setSavedCount(data.savedCount ?? 0);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -87,7 +89,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid sm:grid-cols-3 gap-5 mb-8">
+        <div className="grid sm:grid-cols-2 gap-5 mb-8">
           {/* Profile completion */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Profile Completion</p>
@@ -110,14 +112,10 @@ export default function DashboardPage() {
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Universities Saved</p>
-            <p className="text-3xl font-bold text-blue-600">0</p>
-            <p className="text-xs text-gray-400 mt-2">Explore and save universities</p>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Applications</p>
-            <p className="text-3xl font-bold text-blue-600">0</p>
-            <p className="text-xs text-gray-400 mt-2">No applications submitted yet</p>
+            <p className="text-3xl font-bold text-blue-600">{savedCount}</p>
+            <p className="text-xs text-gray-400 mt-2">
+              {savedCount > 0 ? "You'll receive email reminders for upcoming events" : "Explore and save universities"}
+            </p>
           </div>
         </div>
 
@@ -130,7 +128,7 @@ export default function DashboardPage() {
                   <AlertCircle className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-sm">Complete your profile for better recommendations</h3>
+                  <h3 className="font-semibold text-gray-900 text-sm">Profile Progress</h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     Missing: {incomplete.map(s => s.label).join(", ")}
                   </p>

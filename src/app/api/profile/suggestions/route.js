@@ -25,7 +25,7 @@ export async function POST(req) {
   const allowedPrograms = PROGRAMS_BY_LEVEL[academic_level]
     || "Computer Science, Software Engineering, Business Administration, Medicine (MBBS), Civil Engineering, Electrical Engineering, Mechanical Engineering, Psychology, Economics, Architecture, Mass Communication, Law, Pharmacy, Biotechnology, Data Science, Artificial Intelligence, Accounting & Finance";
 
-  const prompt = `You are an academic counselor for Smart Admission Guide (SAG), a Pakistani university admissions platform. Based solely on the student's previous academic results, suggest the single most suitable university program for them.
+  const prompt = `You are an academic counselor for Smart Admission Guide (SAG), a Pakistani university admissions platform. Based solely on the student's previous academic results, suggest the single most suitable university program for them, plus up to 3 alternatives they could also consider.
 
 Student's Previous Studies:
 - Education Level: ${academic_level || "Not specified"}
@@ -45,12 +45,13 @@ Respond in this EXACT JSON format (no extra text, no markdown):
       "matchScore": 90,
       "reason": "1-2 sentence explanation tied specifically to their matric/intermediate marks and education level",
       "careers": ["Career 1", "Career 2", "Career 3"],
-      "eligibility": "Brief eligibility note based on their marks"
+      "eligibility": "Brief eligibility note based on their marks",
+      "alternatives": ["Alternative Program 1", "Alternative Program 2", "Alternative Program 3"]
     }
   ]
 }
 
-Provide exactly 1 suggestion. Choose ONLY from: ${allowedPrograms}.`;
+Provide exactly 1 suggestion with 2-3 alternatives. Choose ONLY from: ${allowedPrograms}.`;
 
   try {
     const message = await client.messages.create({

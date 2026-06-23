@@ -436,9 +436,13 @@ export default function QuizPage() {
               </h3>
               <div className="flex flex-wrap gap-2">
                 {recommendation.alternativeDepartments?.map((d, i) => (
-                  <span key={i} className="text-sm bg-gray-100 text-gray-700 px-4 py-2 rounded-xl border border-gray-200">
+                  <Link
+                    key={i}
+                    href={`/universities?program=${encodeURIComponent(d)}`}
+                    className="text-sm bg-gray-100 text-gray-700 px-4 py-2 rounded-xl border border-gray-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+                  >
                     {d}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </div>

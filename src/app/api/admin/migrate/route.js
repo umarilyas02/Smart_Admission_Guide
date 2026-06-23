@@ -5,6 +5,7 @@ export async function GET() {
   const migrations = [
     `ALTER TABLE universities ADD COLUMN IF NOT EXISTS fee_structure_url VARCHAR(500)`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS test_type VARCHAR(50)`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS matric_type VARCHAR(50)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE`,
     `CREATE TABLE IF NOT EXISTS user_university_favorites (
       id SERIAL PRIMARY KEY,

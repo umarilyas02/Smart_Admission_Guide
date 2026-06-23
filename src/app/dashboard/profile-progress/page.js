@@ -70,9 +70,17 @@ const INTEREST_CHIPS = {
   ],
 };
 
+const MATRIC_TYPES = [
+  { value: "medical_science",  label: "Medical Science (Biology)" },
+  { value: "computer_science", label: "Computer Science" },
+  { value: "arts",             label: "Arts / Humanities" },
+  { value: "commerce",         label: "Commerce" },
+  { value: "engineering",      label: "Engineering / Physics" },
+  { value: "general",          label: "General Science" },
+];
+
 // Which tests are relevant for each education level
 const TESTS_FOR_LEVEL = {
-  matric:          ["none"],
   fsc_medical:     ["none", "mdcat", "nums", "other"],
   fsc_engineering: ["none", "ecat",  "nts_nat", "other"],
   ics:             ["none", "ecat",  "nts_nat", "gat", "other"],
@@ -88,7 +96,7 @@ function getRelevantTests(academic_level) {
 
 function isSectionComplete(id, f) {
   if (id === "personal")  return !!(f.name?.trim() && f.phone?.trim());
-  if (id === "academic")  return !!(f.academic_level && f.matric_marks && (f.academic_level === "matric" || f.intermediate_marks));
+  if (id === "academic")  return !!(f.academic_level && f.matric_type && f.matric_marks && f.intermediate_marks);
   if (id === "test")      return !!(f.test_type && (f.test_type === "none" || f.test_score));
   if (id === "interests") return !!f.interests?.trim();
   return false;
@@ -101,9 +109,10 @@ function getMissingFields(id, f) {
     if (!f.phone?.trim()) missing.push("Phone Number");
   }
   if (id === "academic") {
-    if (!f.academic_level)     missing.push("Education Level");
+    if (!f.academic_level)     missing.push("Intermediate Stream");
+    if (!f.matric_type)        missing.push("Matric Subject Stream");
     if (!f.matric_marks)       missing.push("Matric Marks");
-    if (f.academic_level && f.academic_level !== "matric" && !f.intermediate_marks) missing.push("Intermediate Marks");
+    if (!f.intermediate_marks) missing.push("Intermediate Marks");
   }
   if (id === "test") {
     if (!f.test_type)                                   missing.push("Test Type");
@@ -129,7 +138,7 @@ export default function ProfileProgressPage() {
   const [suggestions,        setSuggestions]        = useState(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [form, setForm] = useState({
-    name: "", phone: "", academic_level: "", matric_marks: "",
+    name: "", phone: "", academic_level: "", matric_type: "", matric_marks: "",
     intermediate_marks: "", test_type: "", test_score: "", interests: "",
   });
   const router = useRouter();
@@ -168,6 +177,7 @@ export default function ProfileProgressPage() {
           name:               data.user?.name              || "",
           phone:              data.student?.phone           || "",
           academic_level:     data.student?.academic_level  || "",
+          matric_type:        data.student?.matric_type     || "",
           matric_marks:       data.student?.matric_marks    != null ? String(data.student.matric_marks) : "",
           intermediate_marks: data.student?.intermediate_marks != null ? String(data.student.intermediate_marks) : "",
           test_type:          data.student?.test_type        || "",
@@ -370,7 +380,7 @@ export default function ProfileProgressPage() {
                   <div className="space-y-5">
                     <ValidatedInput
                       type="select"
-                      label="Current Education Level"
+                      label="Intermediate Stream"
                       value={form.academic_level}
                       onChange={e => {
                         const level = e.target.value;
@@ -378,7 +388,6 @@ export default function ProfileProgressPage() {
                         setForm(p => ({
                           ...p,
                           academic_level: level,
-                          // reset test fields if selected test no longer valid for new level
                           test_type:  p.test_type && !relevant.includes(p.test_type) ? "" : p.test_type,
                           test_score: p.test_type && !relevant.includes(p.test_type) ? "" : p.test_score,
                         }));
@@ -386,14 +395,29 @@ export default function ProfileProgressPage() {
                       required
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
                     >
-                      <option value="">Select your current level</option>
-                      <option value="matric">Matric</option>
-                      <option value="fsc_medical">Intermediate — FSc Pre-Medical</option>
-                      <option value="fsc_engineering">Intermediate — FSc Pre-Engineering</option>
-                      <option value="ics">Intermediate — ICS (Computer Science)</option>
-                      <option value="icom">Intermediate — ICom (Commerce)</option>
-                      <option value="fa">Intermediate — FA (Arts)</option>
+                      <option value="">Select your intermediate stream</option>
+                      <option value="fsc_medical">FSc Pre-Medical</option>
+                      <option value="fsc_engineering">FSc Pre-Engineering</option>
+                      <option value="ics">ICS (Computer Science)</option>
+                      <option value="icom">ICom (Commerce)</option>
+                      <option value="fa">FA (Arts)</option>
                     </ValidatedInput>
+
+                    {form.academic_level && (
+                      <ValidatedInput
+                        type="select"
+                        label="What did you study in Matric?"
+                        value={form.matric_type}
+                        onChange={e => set("matric_type", e.target.value)}
+                        required
+                        inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
+                      >
+                        <option value="">Select matric stream</option>
+                        {MATRIC_TYPES.map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </ValidatedInput>
+                    )}
 
                     <div className="grid sm:grid-cols-2 gap-5">
                       <ValidatedInput
@@ -410,22 +434,20 @@ export default function ProfileProgressPage() {
                         suffix="%"
                         inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
                       />
-                      {form.academic_level !== "matric" && (
-                        <ValidatedInput
-                          type="percentage"
-                          label="Intermediate Marks (%)"
-                          value={form.intermediate_marks}
-                          onChange={e => set("intermediate_marks", e.target.value)}
-                          min={33}
-                          max={100}
-                          maxLength={6}
-                          placeholder="e.g. 78.0"
-                          required
-                          hint="Enter percentage (33–100)"
-                          suffix="%"
-                          inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
-                        />
-                      )}
+                      <ValidatedInput
+                        type="percentage"
+                        label="Intermediate Marks (%)"
+                        value={form.intermediate_marks}
+                        onChange={e => set("intermediate_marks", e.target.value)}
+                        min={33}
+                        max={100}
+                        maxLength={6}
+                        placeholder="e.g. 78.0"
+                        required
+                        hint="Enter percentage (33–100)"
+                        suffix="%"
+                        inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-10"
+                      />
                     </div>
 
                     {/* Marks meter */}
@@ -434,7 +456,7 @@ export default function ProfileProgressPage() {
                         {form.matric_marks && (
                           <MarksBar label="Matric" value={parseFloat(form.matric_marks)} />
                         )}
-                        {form.academic_level !== "matric" && form.intermediate_marks && (
+                        {form.intermediate_marks && (
                           <MarksBar label="Intermediate" value={parseFloat(form.intermediate_marks)} />
                         )}
                       </div>
@@ -737,6 +759,23 @@ function SuggestionCard({ suggestion }) {
                 <span key={i} className="text-xs px-2.5 py-1 bg-white border border-blue-200 rounded-full text-gray-600">
                   {c}
                 </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {suggestion.alternatives?.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">You Could Also Consider</p>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestion.alternatives.map((alt, i) => (
+                <button
+                  key={i}
+                  onClick={() => router.push(`/universities?program=${encodeURIComponent(alt)}`)}
+                  className="text-xs px-2.5 py-1 bg-white border border-gray-200 rounded-full text-gray-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+                >
+                  {alt}
+                </button>
               ))}
             </div>
           </div>
