@@ -5,6 +5,7 @@ import { useEffect, useState, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import ValidatedInput from "@/components/ValidatedInput";
 import Breadcrumb from "@/components/Breadcrumb";
+import { validate } from "@/lib/validators";
 
 function ResetPasswordForm() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,16 @@ function ResetPasswordForm() {
   const [message, setMessage] = useState(null);
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isOtpSubmitDisabled = Boolean(
+    loading ||
+    validate("email", email, { required: true }) ||
+    validate("otp", otp, { required: true })
+  );
+  const isResetSubmitDisabled = Boolean(
+    loading ||
+    validate("password", password, { required: true }) ||
+    validate("confirm-password", confirmPassword, { required: true, compareValue: password })
+  );
 
   useEffect(() => {
     const initialEmail = searchParams.get("email") || "";
@@ -24,6 +35,7 @@ function ResetPasswordForm() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
+    if (isOtpSubmitDisabled) return;
     setLoading(true);
     setMessage(null);
     try {
@@ -44,6 +56,7 @@ function ResetPasswordForm() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
+    if (isResetSubmitDisabled) return;
     setLoading(true);
     setMessage(null);
     try {
@@ -115,7 +128,7 @@ function ResetPasswordForm() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={isOtpSubmitDisabled}
                   className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
                 >
                   {loading ? "Verifying..." : "Verify OTP"}
@@ -161,7 +174,7 @@ function ResetPasswordForm() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={isResetSubmitDisabled}
                   className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
                 >
                   {loading ? "Resetting..." : "Reset Password"}

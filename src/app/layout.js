@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Smart Admission Guide - Your University Admission Partner",
-  description: "Smart Admission Guide helps intermediate students choose the best university and program using AI-powered recommendations. Calculate your admission chances and get personalized guidance.",
+  title: "Admission Compass Pakistan - Your University Admission Partner",
+  description: "Admission Compass Pakistan helps intermediate students choose the best university and program using AI-powered recommendations. Calculate your admission chances and get personalized guidance.",
   keywords: "university admission, Pakistan universities, admission calculator, FSc, A-Levels, intermediate, merit calculator",
 };
 

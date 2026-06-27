@@ -13,34 +13,25 @@ export default function Navbar() {
   const isAdmin = pathname?.startsWith("/admin");
 
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("auth_token");
-      if (!token) { setIsLoggedIn(false); return; }
-
+    const checkAuth = async () => {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp * 1000 < Date.now()) {
-          localStorage.removeItem("auth_token");
-          setIsLoggedIn(false);
-          return;
-        }
+        const res = await fetch('/api/auth/check');
+        const data = await res.json();
+        setIsLoggedIn(data.authenticated);
       } catch {
-        localStorage.removeItem("auth_token");
         setIsLoggedIn(false);
-        return;
       }
-
-      setIsLoggedIn(true);
     };
 
     checkAuth();
-
-    window.addEventListener('storage', checkAuth);
-    return () => window.removeEventListener('storage', checkAuth);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     setIsLoggedIn(false);
     router.push("/auth");
   };
@@ -55,7 +46,7 @@ export default function Navbar() {
             className={`flex items-center gap-2 text-xl sm:text-2xl font-bold text-primary ${isAdmin ? "pointer-events-none cursor-default" : ""}`}
           >
             <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
-            Smart Admission Guide
+            Admission Compass Pakistan
           </Link>
           
           <button
@@ -80,7 +71,7 @@ export default function Navbar() {
               <>
                 <Link href="/about" className="text-gray-700 hover:text-primary transition">About</Link>
                 <Link href="/universities" className="text-gray-700 hover:text-primary transition">Universities</Link>
-                <Link href="/quiz" className="text-gray-700 hover:text-primary transition">Quiz</Link>
+                <Link href="/quiz" className="text-gray-700 hover:text-primary transition">Guidance</Link>
                 <Link
                   href={isLoggedIn ? "/application-pack" : "/auth?mode=login"}
                   className="text-gray-700 hover:text-primary transition"
@@ -111,7 +102,7 @@ export default function Navbar() {
               <>
                 <Link href="/about" className="block text-gray-700 hover:text-primary transition py-2">About</Link>
                 <Link href="/universities" className="block text-gray-700 hover:text-primary transition py-2">Universities</Link>
-                <Link href="/quiz" className="block text-gray-700 hover:text-primary transition py-2">Quiz</Link>
+                <Link href="/quiz" className="block text-gray-700 hover:text-primary transition py-2">Guidance</Link>
                 <Link
                   href={isLoggedIn ? "/application-pack" : "/auth?mode=login"}
                   className="block text-gray-700 hover:text-primary transition py-2"

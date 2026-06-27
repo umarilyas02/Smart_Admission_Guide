@@ -18,6 +18,17 @@ const EMPTY_FORM = {
 
 const TEST_TYPES = ["ECAT", "MCAT", "HAT", "NTS", "SAT", "GAT", "Other"];
 
+function getTestFormErrors(form) {
+  const errors = [];
+  if (!form.name.trim() || form.name.trim().length < 2) errors.push("Test name is required");
+  if (form.type && !TEST_TYPES.includes(form.type)) errors.push("Select a valid test type");
+  if (form.total_marks !== "" && (!/^\d+$/.test(String(form.total_marks)) || Number(form.total_marks) <= 0)) {
+    errors.push("Total marks must be a positive number");
+  }
+  if (form.description.length > 500) errors.push("Description must be at most 500 characters");
+  return errors;
+}
+
 function Modal({ title, onClose, children }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -35,6 +46,8 @@ function Modal({ title, onClose, children }) {
 }
 
 function TestForm({ form, onChange, onSubmit, onCancel, loading, submitLabel }) {
+  const errors = getTestFormErrors(form);
+  const isDisabled = loading || errors.length > 0;
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -104,7 +117,7 @@ function TestForm({ form, onChange, onSubmit, onCancel, loading, submitLabel }) 
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={loading}
+          disabled={isDisabled}
           className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition font-medium"
         >
           {loading ? "Saving..." : submitLabel}
@@ -150,6 +163,8 @@ export default function EntryTestsManagement() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    const errors = getTestFormErrors(addForm);
+    if (errors.length > 0) { toast.error(errors[0]); return; }
     setAddLoading(true);
     try {
       const res = await fetch("/api/admin/entry-tests", {
@@ -184,6 +199,8 @@ export default function EntryTestsManagement() {
 
   const handleEdit = async (e) => {
     e.preventDefault();
+    const errors = getTestFormErrors(editForm);
+    if (errors.length > 0) { toast.error(errors[0]); return; }
     setEditLoading(true);
     try {
       const res = await fetch(`/api/admin/entry-tests/${editTarget.id}`, {

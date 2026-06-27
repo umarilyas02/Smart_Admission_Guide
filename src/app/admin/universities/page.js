@@ -17,6 +17,27 @@ const EMPTY_FORM = {
   ranking: "",
 };
 
+function isValidUrl(value) {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getUniversityFormErrors(form) {
+  const errors = [];
+  if (!form.name.trim() || form.name.trim().length < 2) errors.push("University name is required");
+  if (form.type && !["Public", "Private"].includes(form.type)) errors.push("Select a valid university type");
+  if (!isValidUrl(form.website)) errors.push("Website URL must be valid");
+  if (!isValidUrl(form.fee_structure_url)) errors.push("Fee structure URL must be valid");
+  if (form.ranking !== "" && (!/^\d+$/.test(String(form.ranking)) || Number(form.ranking) < 1)) errors.push("Ranking must be a positive number");
+  if (form.description.length > 1000) errors.push("Description must be at most 1000 characters");
+  return errors;
+}
+
 function Modal({ title, onClose, children }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -34,6 +55,8 @@ function Modal({ title, onClose, children }) {
 }
 
 function UniversityForm({ form, onChange, onSubmit, onCancel, loading, submitLabel }) {
+  const errors = getUniversityFormErrors(form);
+  const isDisabled = loading || errors.length > 0;
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -110,7 +133,7 @@ function UniversityForm({ form, onChange, onSubmit, onCancel, loading, submitLab
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={loading}
+          disabled={isDisabled}
           className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition font-medium"
         >
           {loading ? "Saving..." : submitLabel}
@@ -160,6 +183,8 @@ export default function UniversitiesManagement() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    const errors = getUniversityFormErrors(addForm);
+    if (errors.length > 0) { toast.error(errors[0]); return; }
     setAddLoading(true);
     try {
       const res = await fetch("/api/admin/universities", {
@@ -200,6 +225,8 @@ export default function UniversitiesManagement() {
 
   const handleEdit = async (e) => {
     e.preventDefault();
+    const errors = getUniversityFormErrors(editForm);
+    if (errors.length > 0) { toast.error(errors[0]); return; }
     setEditLoading(true);
     try {
       const res = await fetch(`/api/admin/universities/${editTarget.id}`, {

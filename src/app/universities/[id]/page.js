@@ -51,6 +51,38 @@ function InfoBadge({ icon: Icon, label, value }) {
   );
 }
 
+function getProgramGuidance(name = "") {
+  const n = name.toLowerCase();
+  if (/(computer|software|data|artificial|cyber|information technology|it)/.test(n)) {
+    return {
+      roadmap: ["Programming fundamentals", "Databases and systems", "Projects, internship, final-year product"],
+      careers: ["Software Engineer", "Data Analyst", "Cybersecurity Analyst"],
+    };
+  }
+  if (/(medical|mbbs|dentistry|pharmacy|nursing|physio|biotechnology|microbiology|nutrition)/.test(n)) {
+    return {
+      roadmap: ["Core science foundation", "Clinical/lab training", "House job, internship, or supervised practice"],
+      careers: ["Healthcare Professional", "Clinical Researcher", "Public Health Officer"],
+    };
+  }
+  if (/(engineering|civil|mechanical|electrical|chemical|architecture|mechatronics)/.test(n)) {
+    return {
+      roadmap: ["Math and physics foundation", "Discipline labs and design studios", "Capstone project and industrial training"],
+      careers: ["Design Engineer", "Project Engineer", "Operations Engineer"],
+    };
+  }
+  if (/(business|bba|accounting|finance|commerce|banking|marketing|human resource|supply chain)/.test(n)) {
+    return {
+      roadmap: ["Business and economics foundation", "Specialization courses", "Case studies, internship, and final project"],
+      careers: ["Business Analyst", "Finance Officer", "Marketing Executive"],
+    };
+  }
+  return {
+    roadmap: ["Foundation courses", "Major specialization", "Internship, portfolio, or final-year project"],
+    careers: ["Program Specialist", "Research Assistant", "Project Coordinator"],
+  };
+}
+
 export default function UniversityProgramsPage({ params }) {
   const { id } = use(params);
   const [data, setData] = useState(null);
@@ -201,7 +233,9 @@ export default function UniversityProgramsPage({ params }) {
                 )}
 
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {data.programs?.map((prog) => (
+                  {data.programs?.map((prog) => {
+                    const guidance = getProgramGuidance(prog.name);
+                    return (
                     <div
                       key={prog.id}
                       className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:border-gray-200 transition-all"
@@ -227,8 +261,27 @@ export default function UniversityProgramsPage({ params }) {
                           value={prog.eligibility}
                         />
                       </div>
+                      <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Roadmap</p>
+                          <ol className="space-y-1 text-sm text-gray-600 list-decimal list-inside">
+                            {guidance.roadmap.map((step) => <li key={step}>{step}</li>)}
+                          </ol>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Career Paths</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {guidance.careers.map((career) => (
+                              <span key={career} className="text-xs px-2.5 py-1 bg-blue-50 border border-blue-100 rounded-full text-primary">
+                                {career}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </>

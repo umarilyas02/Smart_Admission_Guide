@@ -61,14 +61,23 @@ export async function POST(request) {
     // Issue our JWT for downstream usage
     const token = generateToken(user.id, user.email);
 
-    return Response.json(
+    const response = Response.json(
       {
         message: 'Login successful',
-        token,
         user,
       },
       { status: 200 }
     );
+
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('Google login error:', error);
     return Response.json(

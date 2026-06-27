@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
+import { validate } from '@/lib/validators';
 
 export async function POST(request) {
   try {
@@ -11,6 +12,12 @@ export async function POST(request) {
         { error: 'Email, OTP and password are required' },
         { status: 400 }
       );
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailError = validate('email', normalizedEmail, { required: true });
+    if (emailError) {
+      return Response.json({ error: emailError }, { status: 400 });
     }
 
     if (password !== confirmPassword) {
@@ -30,7 +37,7 @@ export async function POST(request) {
     // Verify OTP
     const { rows: otpRecords } = await pool.query(
       'SELECT user_id, expires_at, is_used FROM password_reset_otps WHERE email = $1 AND otp = $2 ORDER BY created_at DESC LIMIT 1',
-      [email, otp]
+      [normalizedEmail, otp]
     );
 
     if (otpRecords.length === 0) {
@@ -70,7 +77,7 @@ export async function POST(request) {
     // Mark OTP as used
     await pool.query(
       'UPDATE password_reset_otps SET is_used = TRUE WHERE email = $1 AND otp = $2',
-      [email, otp]
+      [normalizedEmail, otp]
     );
 
     return Response.json(

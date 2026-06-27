@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ValidatedInput from "@/components/ValidatedInput";
 import Breadcrumb from "@/components/Breadcrumb";
+import { validate } from "@/lib/validators";
 
 export default function AdminSettings() {
   const router = useRouter();
@@ -15,6 +16,11 @@ export default function AdminSettings() {
     password: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const formErrors = [
+    validate("name", adminInfo.name, { required: true }),
+    validate("email", adminInfo.email, { required: true }),
+    adminInfo.password ? validate("password", adminInfo.password, { required: false }) : null,
+  ].filter(Boolean);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -35,8 +41,8 @@ export default function AdminSettings() {
   }, [router]);
 
   const handleSave = async () => {
-    if (!adminInfo.name || !adminInfo.email) {
-      alert("Name and email are required");
+    if (formErrors.length > 0) {
+      alert(formErrors[0]);
       return;
     }
 
@@ -105,7 +111,7 @@ export default function AdminSettings() {
 
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || formErrors.length > 0}
                 className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {isSaving ? "Saving..." : "Save Changes"}

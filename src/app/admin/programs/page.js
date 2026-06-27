@@ -34,6 +34,21 @@ const FIELDS = [
   "Other",
 ];
 
+function getProgramFormErrors(form, universities) {
+  const errors = [];
+  const universityIds = new Set(universities.map((u) => String(u.id)));
+  if (!form.university_id || !universityIds.has(String(form.university_id))) errors.push("Select a valid university");
+  if (!form.name.trim() || form.name.trim().length < 2) errors.push("Program name is required");
+  if (form.field && !FIELDS.includes(form.field)) errors.push("Select a valid field");
+  if (form.fee !== "" && (!/^\d+$/.test(String(form.fee)) || Number(form.fee) < 0)) errors.push("Fee must be a valid number");
+  if (form.merit_percentage !== "") {
+    const merit = Number(form.merit_percentage);
+    if (!Number.isFinite(merit) || merit < 0 || merit > 100) errors.push("Merit must be between 0 and 100");
+  }
+  if (form.description.length > 1000) errors.push("Description must be at most 1000 characters");
+  return errors;
+}
+
 function Modal({ title, onClose, children }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -51,6 +66,8 @@ function Modal({ title, onClose, children }) {
 }
 
 function ProgramForm({ form, onChange, onSubmit, onCancel, loading, submitLabel, universities }) {
+  const errors = getProgramFormErrors(form, universities);
+  const isDisabled = loading || errors.length > 0;
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -149,7 +166,7 @@ function ProgramForm({ form, onChange, onSubmit, onCancel, loading, submitLabel,
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={loading}
+          disabled={isDisabled}
           className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition font-medium"
         >
           {loading ? "Saving..." : submitLabel}
@@ -215,6 +232,8 @@ export default function ProgramsManagement() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    const errors = getProgramFormErrors(addForm, universities);
+    if (errors.length > 0) { toast.error(errors[0]); return; }
     setAddLoading(true);
     try {
       const res = await fetch("/api/admin/programs", {
@@ -256,6 +275,8 @@ export default function ProgramsManagement() {
 
   const handleEdit = async (e) => {
     e.preventDefault();
+    const errors = getProgramFormErrors(editForm, universities);
+    if (errors.length > 0) { toast.error(errors[0]); return; }
     setEditLoading(true);
     try {
       const res = await fetch(`/api/admin/programs/${editTarget.id}`, {

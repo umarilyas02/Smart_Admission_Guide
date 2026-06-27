@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ValidatedInput from "@/components/ValidatedInput";
 import Breadcrumb from "@/components/Breadcrumb";
+import { validate } from "@/lib/validators";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const router = useRouter();
+  const isSubmitDisabled = Boolean(loading || validate("email", email, { required: true }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitDisabled) return;
     setLoading(true);
     setMessage(null);
     try {
@@ -65,7 +68,7 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitDisabled}
               className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
               {loading ? "Sending..." : "Send OTP"}

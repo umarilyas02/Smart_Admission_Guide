@@ -1,18 +1,15 @@
 export async function authFetch(url, options = {}) {
-  const token = localStorage.getItem("auth_token");
-
   const res = await fetch(url, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
 
   if (res.status === 401) {
-    localStorage.removeItem("auth_token");
-    window.location.href = "/auth?mode=login";
+    window.location.href = "/auth";
     return res;
   }
 

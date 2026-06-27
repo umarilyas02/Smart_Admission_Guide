@@ -4,9 +4,9 @@ export const admissionFormSections = [
     title: 'A — Personal Information',
     fields: [
       { id: 'fullName',          label: 'Full Name (as per CNIC / B-Form)',  type: 'name',     placeholder: 'e.g. Muhammad Ali Khan',            required: true },
-      { id: 'fatherName',        label: "Father's Full Name",                type: 'name',     placeholder: 'e.g. Muhammad Arif Khan',           required: true },
-      { id: 'fatherOccupation',  label: "Father's Occupation",               type: 'alpha',    placeholder: 'e.g. Engineer, Businessman',        required: false },
-      { id: 'guardianName',      label: 'Guardian Name (if not father)',      type: 'name',     placeholder: 'Leave blank if father is guardian', required: false },
+      { id: 'guardianType',      label: 'Guardian Type',                     type: 'select',   options: ['', 'Father', 'Guardian'],              required: true },
+      { id: 'fatherName',        label: "Father / Guardian Full Name",        type: 'name',     placeholder: 'e.g. Muhammad Arif Khan',           required: true },
+      { id: 'fatherOccupation',  label: "Father / Guardian Occupation",       type: 'alpha',    placeholder: 'e.g. Engineer, Businessman',        required: false },
       { id: 'guardianPhone',     label: 'Guardian Contact Number',           type: 'phone',    placeholder: '3001234567',                        required: false },
       { id: 'dateOfBirth',       label: 'Date of Birth',                     type: 'date',                                                       required: true },
       { id: 'gender',            label: 'Gender',                            type: 'select',   options: ['', 'Male', 'Female', 'Other'],          required: true },
@@ -19,6 +19,7 @@ export const admissionFormSections = [
       { id: 'email',             label: 'Email Address',                     type: 'email',    placeholder: 'student@email.com',                 required: true },
       { id: 'phone',             label: 'Mobile Number',                     type: 'phone',    placeholder: '3001234567',                        required: true },
       { id: 'address',           label: 'Permanent Address',                 type: 'textarea', placeholder: 'House No., Street, City',           required: true,  rows: 2, span: true, maxWords: 100 },
+      { id: 'sameAsPermanent',   label: 'Mailing Address Same as Permanent?', type: 'select',  options: ['', 'Yes', 'No'],                       required: true },
       { id: 'mailingAddress',    label: 'Mailing Address (if different)',    type: 'textarea', placeholder: 'Leave blank if same as above',      required: false, rows: 2, span: true, maxWords: 100 },
     ],
   },
@@ -27,6 +28,7 @@ export const admissionFormSections = [
     title: 'B — Academic Background',
     fields: [
       { id: 'schoolName',     label: 'School Name',               type: 'alpha',  placeholder: 'e.g. Government High School, Lahore', required: false, span: true },
+      { id: 'schoolAddress',  label: 'School Address',            type: 'textarea', placeholder: 'School street, area, city', required: false, rows: 2, span: true, maxWords: 50 },
       { id: 'matricBoard',    label: 'Matric Board',              type: 'select', options: ['', 'Federal Board', 'Lahore Board', 'Karachi Board', 'Rawalpindi Board', 'Gujranwala Board', 'Faisalabad Board', 'Multan Board', 'Bahawalpur Board', 'DG Khan Board', 'Sargodha Board', 'Sahiwal Board', 'Other'], required: true },
       { id: 'matricRollNo',   label: 'Matric Roll Number',        type: 'number', placeholder: 'e.g. 123456',  min: 1, max: 9999999, maxLength: 7, hint: 'Digits only, up to 7 numbers.', required: true },
       { id: 'matricYear',     label: 'Matric Passing Year',       type: 'year',   placeholder: '2023',         min: 1950, maxLength: 4, hint: '4-digit year only.', required: true },
@@ -69,16 +71,13 @@ export const admissionFormSections = [
 ];
 
 export const documentChecklist = [
-  { id: 'matricCert',     label: 'Matric Certificate / DMC (attested)',        required: true },
-  { id: 'interCert',      label: 'Intermediate Certificate / DMC (attested)',  required: true },
+  { id: 'matricResult',   label: 'Matric Result Card / DMC (attested)',        required: true },
+  { id: 'interResult',    label: 'Intermediate Result Card / DMC (attested)',  required: true },
   { id: 'cnicCopy',       label: 'CNIC or B-Form copy (attested)',             required: true },
-  { id: 'fatherCnicCopy', label: "Father's CNIC copy (attested)",              required: true },
+  { id: 'fatherCnicCopy', label: "Father / Guardian CNIC copy (attested)",     required: true },
   { id: 'domicileCert',   label: 'Domicile Certificate',                       required: true },
   { id: 'photos',         label: 'Passport-size photographs (4–6 copies)',     required: true },
-  { id: 'entryTestCard',  label: 'Entry Test Result Card / Score Report',      required: true },
+  { id: 'entryTestCard',  label: 'Entry Test Result Card / Score Report (if required)', required: false },
   { id: 'charCert',       label: 'Character Certificate (from last institution)', required: true },
   { id: 'migrationCert',  label: 'Migration Certificate (if changing board)',  required: false },
-  { id: 'hafizCert',      label: 'Hafiz-e-Quran Certificate (if applicable)',  required: false },
-  { id: 'sportsCert',     label: 'Sports / Extracurricular Certificates',      required: false },
-  { id: 'disabilityCert', label: 'Disability Certificate (if applicable)',     required: false },
 ];

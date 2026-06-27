@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import ValidatedInput from "@/components/ValidatedInput";
+import { validate } from "@/lib/validators";
 
 export default function AuthPage() {
   const [mode, setMode] = useState("login");
@@ -14,15 +15,9 @@ export default function AuthPage() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
-  const [token, setToken] = useState(null);
   const googleButtonRef = useRef(null);
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-  useEffect(() => {
-    const saved = localStorage.getItem("auth_token");
-    if (saved) setToken(saved);
-  }, []);
 
   useEffect(() => {
     if (!googleClientId) return;
@@ -63,6 +58,7 @@ export default function AuthPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitDisabled) return;
     setLoading(true);
     setMessage(null);
 
@@ -86,8 +82,7 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed");
 
-      if (mode === "login" && data.token) {
-        localStorage.setItem("auth_token", data.token);
+      if (mode === "login") {
         setMessage({ type: "success", text: data.message || "Login successful!" });
         const isAdmin = data.user?.email === "smartadmissionguide@gmail.com";
         setTimeout(() => {
@@ -117,7 +112,6 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Google login failed");
 
-      localStorage.setItem("auth_token", data.token);
       setMessage({ type: "success", text: data.message || "Login successful!" });
       const isAdmin = data.user?.email === "smartadmissionguide@gmail.com";
       setTimeout(() => {
@@ -130,11 +124,24 @@ export default function AuthPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    setToken(null);
-    setMessage({ type: "success", text: "Logged out successfully." });
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      window.location.href = "/auth";
+    } catch (err) {
+      setMessage({ type: "error", text: "Logout failed" });
+    }
   };
+
+  const isSubmitDisabled = Boolean(
+    loading ||
+    validate("email", form.email, { required: true }) ||
+    validate("password", form.password, { required: true }) ||
+    (mode === "register" && (
+      validate("name", form.name, { required: true }) ||
+      validate("confirm-password", form.confirmPassword, { required: true, compareValue: form.password })
+    ))
+  );
 
   return (
     <div className="bg-secondary min-h-screen font-inter">
@@ -222,7 +229,7 @@ export default function AuthPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitDisabled}
               className="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
               {loading ? "Please wait..." : mode === "login" ? "Login" : "Register"}

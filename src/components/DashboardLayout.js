@@ -11,12 +11,22 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      router.push("/auth?mode=login");
-      return;
-    }
-    setTimeout(() => setLoading(false), 0);
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/check');
+        const data = await res.json();
+        if (!data.authenticated) {
+          router.push("/auth?mode=login");
+          return;
+        }
+      } catch {
+        router.push("/auth?mode=login");
+        return;
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
   }, [router]);
 
   if (loading) {

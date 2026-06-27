@@ -216,7 +216,7 @@ function RecommenderForm({ info, onChange }) {
 }
 
 /* ── Document Card ── */
-function DocumentCard({ doc, isLoggedIn, generated, onGenerate, generating, recommenderInfo, onRecommenderChange, showRecommenderForm, onToggleRecommenderForm }) {
+function DocumentCard({ doc, isLoggedIn, generated, onGenerate, generating, recommenderInfo, onRecommenderChange, showRecommenderForm, onToggleRecommenderForm, disabled }) {
   const isGenerated = generated.includes(doc.type);
   const isGenerating = generating[doc.type];
   const isMotivation = doc.type === "motivation-letter";
@@ -288,7 +288,7 @@ function DocumentCard({ doc, isLoggedIn, generated, onGenerate, generating, reco
         <button
           type="button"
           onClick={() => onGenerate(doc.type)}
-          disabled={isGenerating || (isRec && !recommenderInfo?.name?.trim())}
+          disabled={disabled || isGenerating || (isRec && !recommenderInfo?.name?.trim())}
           className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition disabled:opacity-50 disabled:cursor-not-allowed ${
             doc.type === "admission-form"    ? "bg-blue-600 hover:bg-blue-700"   :
             doc.type === "motivation-letter" ? "bg-purple-600 hover:bg-purple-700" : "bg-green-600 hover:bg-green-700"
@@ -362,7 +362,19 @@ export default function ApplicationPackPage() {
     load();
   }, []);
 
-  const handleChange  = (field) => (e) => { setFormData((p) => ({ ...p, [field]: e.target.value })); setError(""); };
+  const handleChange  = (field) => (e) => {
+    const value = e.target.value;
+    setFormData((p) => {
+      if (field === "sameAsPermanent" && value === "Yes") {
+        return { ...p, sameAsPermanent: value, mailingAddress: p.address || "" };
+      }
+      if (field === "address" && p.sameAsPermanent === "Yes") {
+        return { ...p, address: value, mailingAddress: value };
+      }
+      return { ...p, [field]: value };
+    });
+    setError("");
+  };
   const toggleSection = (id) => setOpenSections((p) => ({ ...p, [id]: !p[id] }));
   const toggleDoc     = (id) => setDocChecked((p) => ({ ...p, [id]: !p[id] }));
 
@@ -433,6 +445,8 @@ export default function ApplicationPackPage() {
     formData.interObtained && formData.interTotal
       ? parseFloat(pct(formData.interObtained, formData.interTotal))
       : null;
+  const formValidation = validateAdmissionForm(formData);
+  const isFormActionDisabled = !formValidation.valid;
 
   if (loading) {
     return (
@@ -447,8 +461,6 @@ export default function ApplicationPackPage() {
 
   const documents = [
     { name: "Application Form (PDF)", desc: "Complete form with all your details — take this to the university",        type: "admission-form",        Icon: FileText },
-    { name: "Motivation Letter (AI)", desc: "AI-written SOP based on your goals, marks, and achievements",              type: "motivation-letter",     Icon: Mail     },
-    { name: "Recommendation Request", desc: "Addressed letter to your teacher asking for a recommendation",             type: "recommendation-request", Icon: FilePen  },
   ];
 
   return (
@@ -515,7 +527,7 @@ export default function ApplicationPackPage() {
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <button
                 onClick={handleSave}
-                disabled={saving || !isLoggedIn}
+                disabled={saving || !isLoggedIn || isFormActionDisabled}
                 className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 text-sm font-medium"
               >
                 <Save className="w-4 h-4" />
@@ -526,7 +538,7 @@ export default function ApplicationPackPage() {
 
             {/* ── Document Cards ── */}
             <div className="pt-2">
-              <h2 className="text-base font-bold text-gray-900 mb-3">Generate Documents</h2>
+              <h2 className="text-base font-bold text-gray-900 mb-3">Download Application Form</h2>
               <div className="space-y-3">
                 {documents.map((doc) => (
                   <DocumentCard
@@ -540,6 +552,7 @@ export default function ApplicationPackPage() {
                     onRecommenderChange={handleRecommenderChange}
                     showRecommenderForm={showRecommenderForm && doc.type === "recommendation-request"}
                     onToggleRecommenderForm={() => setShowRecommenderForm((p) => !p)}
+                    disabled={isFormActionDisabled}
                   />
                 ))}
               </div>
@@ -561,8 +574,8 @@ export default function ApplicationPackPage() {
               <ul className="text-xs text-blue-800 space-y-1.5 leading-relaxed">
                 <li>• Know exactly what universities will ask</li>
                 <li>• Prepare your documents checklist early</li>
-                <li>• Get an AI-written motivation letter based on your real details</li>
-                <li>• Download a pre-filled recommendation request for your teacher</li>
+                <li>• Reuse saved profile data instead of entering it again</li>
+                <li>• Download a clean admission form PDF</li>
               </ul>
             </div>
 

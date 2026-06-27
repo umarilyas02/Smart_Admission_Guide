@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import Anthropic from '@anthropic-ai/sdk';
 import { query, queryMany, queryOne } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
@@ -135,7 +136,7 @@ const ELIGIBLE_PROGRAMS = {
 };
 
 function buildSystemPrompt(dbContext, academicLevel) {
-  const base = `You are SAG AI — the intelligent assistant for Smart Admission Guide (SAG), a platform helping Pakistani students with university admissions.`;
+  const base = `You are SAG AI — the intelligent assistant for Smart Admission Guide (SAG), a platform helping Pakistani students ONLY with Pakistani university admissions.`;
 
   const levelNote = academicLevel && ELIGIBLE_PROGRAMS[academicLevel]
     ? `\n\nSTUDENT CONTEXT: This student completed ${academicLevel.toUpperCase().replace(/_/g, " ")}. When suggesting programs or departments, ONLY recommend programs they are eligible for: ${ELIGIBLE_PROGRAMS[academicLevel]}. Do NOT suggest programs outside this list.`
@@ -149,17 +150,36 @@ No university data is available in the database yet. Politely inform the user th
 
   return `${base}${levelNote}
 
-YOUR KNOWLEDGE IS STRICTLY LIMITED TO THE DATA BELOW. Do not use any outside knowledge.
+YOUR KNOWLEDGE IS STRICTLY LIMITED TO THE DATA BELOW. ZERO outside knowledge allowed.
 
 ${dbContext}
 
-=== RULES ===
-- Answer ONLY using the university, program, event, and scholarship data provided above.
-- If the user asks about a university or program NOT listed above, say it is not in our database yet.
-- If specific data (merit %, fee, deadline) is missing from the data, say it's not available in our system right now.
-- Do not guess, fabricate, or supplement with general knowledge.
-- Be concise, warm, and student-friendly. Use bullet points for lists.
-- If the question is unrelated to admissions (coding, jokes, general trivia, anything outside university/admission guidance), respond with exactly: "Please ask questions relevant to the Admission Guide." — nothing more.`;
+=== CRITICAL RULES ===
+- SCOPE: ONLY answer about Pakistani universities, programs, admissions, fees, scholarships, and deadlines listed above.
+- DATA SOURCE: Answer ONLY using the database information provided above. Nothing else.
+- PAKISTAN ONLY: If a user asks about international/foreign universities, say "SAG AI only covers Pakistani universities."
+- BLOCKED TOPICS: Do NOT answer questions about coding, programming, homework help, general knowledge, jokes, sports, or anything unrelated to Pakistani admissions.
+- MISSING DATA: If specific data is missing, say "This information is not available in our system right now."
+- NO FABRICATION: Never guess, invent, or supplement with general knowledge.
+- NO CODE: Never provide code, programming help, or technical solutions of any kind.
+- FORMAT: Be concise, warm, and student-friendly. Use bullet points for lists.
+- OFF-TOPIC: For any unrelated question, respond with EXACTLY: "Please ask questions relevant to the Admission Guide." — nothing else.`;
+}
+
+const BLOCKED_KEYWORDS = [
+  'code', 'javascript', 'python', 'java', 'c++', 'html', 'css', 'sql',
+  'algorithm', 'debug', 'function', 'variable', 'syntax', 'compile',
+  'programming', 'coding', 'developer', 'backend', 'frontend', 'api',
+  'database', 'server', 'react', 'node', 'git', 'github', 'docker',
+  'joke', 'funny', 'sports', 'movie', 'game', 'recipe', 'cooking',
+  'weather', 'health', 'doctor', 'medicine', 'diet', 'fitness',
+  'politics', 'news', 'entertainment', 'music', 'story', 'poem',
+  'how to hack', 'how to cheat', 'answers to', 'solve this', 'do my homework',
+];
+
+function isBlockedQuestion(text) {
+  const lower = text.toLowerCase();
+  return BLOCKED_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
 function isAdmissionRelated(text) {
@@ -212,14 +232,16 @@ function buildWebSystemPrompt(webContext, academicLevel) {
     ? `\n\n=== WEB SEARCH RESULTS ===\n${webContext}\n=== END ===\n\nIncorporate the above web results where relevant in your answer.`
     : '';
 
-  return `You are SAG AI — an expert assistant for Pakistani university admissions with broad, up-to-date general knowledge.${levelNote}${webSection}
+  return `You are SAG AI — an expert assistant for Pakistani university admissions ONLY.${levelNote}${webSection}
 
-GUIDELINES:
-- Answer using your comprehensive knowledge of Pakistani universities, HEC regulations, admission processes, merit criteria, programs, and fee structures.
-- If web results are provided above, incorporate relevant details from them.
-- Make clear that this is general knowledge — students should verify the latest figures directly with universities or via HEC.
-- Be concise, warm, and student-friendly. Use bullet points for lists.
-- If the question is completely unrelated to education or admissions, gently redirect to admission topics.`;
+CRITICAL GUIDELINES:
+- SCOPE: ONLY answer about Pakistani universities, admissions, programs, fees, scholarships, deadlines, and HEC regulations.
+- EXPERTISE: Use knowledge of Pakistani universities, HEC regulations, admission processes, merit criteria, programs, and fee structures.
+- WEB RESULTS: If web results are provided above, incorporate relevant details from them for context only.
+- VERIFICATION: Make clear that students should verify the latest figures directly with universities or via HEC.
+- NO CODE: Never provide programming help, code suggestions, or technical solutions.
+- FORMAT: Be concise, warm, and student-friendly. Use bullet points for lists.
+- OFF-TOPIC: For completely unrelated questions (coding, jokes, sports, etc.), respond with: "Please ask questions relevant to the Admission Guide." — nothing else.`;
 }
 
 export async function POST(req) {
@@ -231,14 +253,35 @@ export async function POST(req) {
       return NextResponse.json({ error: 'messages array is required' }, { status: 400 });
     }
 
-    // Resolve optional user identity from bearer token
+    // Get token from cookies or Authorization header
+    let token = null;
     let userId = null;
-    const authHeader = req.headers.get('authorization') || '';
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (token) {
-      const decoded = verifyToken(token);
-      if (decoded?.userId) userId = decoded.userId;
+
+    // Try to get from cookie first
+    try {
+      const cookieStore = await cookies();
+      token = cookieStore.get('auth_token')?.value;
+    } catch (err) {
+      console.error('Error reading cookies:', err);
     }
+
+    // Fall back to Authorization header
+    if (!token) {
+      const authHeader = req.headers.get('authorization') || '';
+      token = authHeader.replace('Bearer ', '').trim();
+    }
+
+    // Verify token and extract userId
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required. Please log in to use the chatbot.' }, { status: 401 });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded?.userId) {
+      return NextResponse.json({ error: 'Invalid or expired token. Please log in again.' }, { status: 401 });
+    }
+
+    userId = decoded.userId;
 
     // Check rate limit
     const rateLimitCheck = await checkRateLimit(userId);
@@ -254,7 +297,28 @@ export async function POST(req) {
     }
 
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-    const userText = lastUserMsg?.content || '';
+    const userText = String(lastUserMsg?.content || '').trim();
+    if (!userText) {
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    }
+    if (userText.length > 500) {
+      return NextResponse.json({ error: 'Message must be at most 500 characters' }, { status: 400 });
+    }
+
+    // Block code/off-topic questions immediately
+    if (isBlockedQuestion(userText)) {
+      return NextResponse.json({
+        dbResponse: 'Please ask questions relevant to the Admission Guide.',
+        webResponse: null,
+        relevant: false,
+        rateLimit: {
+          remaining: (await checkRateLimit(userId)).remaining,
+          limit: RATE_LIMIT_MAX,
+          window: '1 hour',
+        },
+      });
+    }
+
     const relevant = isAdmissionRelated(userText);
 
     // Fetch student's academic level for level-aware recommendations

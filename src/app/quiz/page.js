@@ -93,7 +93,16 @@ export default function QuizPage() {
   const effectiveLevel = selectedLevel;
 
   const handleStart = async () => {
-    if (!effectiveLevel) return;
+    if (!hasProfile) {
+      setErrorMsg("Complete your profile first so recommendations use your marks, stream, and interests.");
+      setPhase("error");
+      return;
+    }
+    if (!effectiveLevel || !profile?.student?.matric_marks || !profile?.student?.intermediate_marks || !profile?.student?.interests) {
+      setErrorMsg("Your profile is incomplete. Add matric marks, intermediate marks, and interests before continuing.");
+      setPhase("error");
+      return;
+    }
     setCurrentQuestion(0);
     setAnswers({});
     setRecommendation(null);
@@ -153,7 +162,14 @@ export default function QuizPage() {
       const res = await fetch("/api/quiz/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questions, answers, academic_level: effectiveLevel || undefined }),
+        body: JSON.stringify({
+          questions,
+          answers,
+          academic_level: effectiveLevel || undefined,
+          interests: profile?.student?.interests || "",
+          matric_marks: profile?.student?.matric_marks ?? null,
+          intermediate_marks: profile?.student?.intermediate_marks ?? null,
+        }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || "Server error");
@@ -187,10 +203,10 @@ export default function QuizPage() {
               <GraduationCap className="w-14 h-14 text-blue-600" />
             </div>
             <h1 className="text-3xl font-bold text-blue-600 mb-2 text-center">
-              Personalized Department Quiz
+              Personalized Program Guidance
             </h1>
             <p className="text-gray-500 mb-6 text-sm text-center leading-relaxed">
-              Our AI reads your profile and crafts questions specific to your education level and interests.
+              Your saved profile, marks, and interests are used before any recommendation is shown.
             </p>
 
             {/* Profile summary card */}
@@ -245,11 +261,11 @@ export default function QuizPage() {
             <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2.5 text-sm text-gray-600">
               <div className="flex items-center gap-2.5">
                 <ClipboardList className="w-4 h-4 text-blue-500 shrink-0" />
-                8 AI-generated questions tailored to your level
+                8 guidance questions tailored to your level
               </div>
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-blue-500 shrink-0" />
-                Questions generated fresh from your profile
+                Questions generated fresh from your completed profile
               </div>
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 text-blue-500 shrink-0" />
@@ -271,7 +287,7 @@ export default function QuizPage() {
               disabled={!effectiveLevel}
               className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition font-semibold text-base disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {prefetchedQuestions && prefetchLevel === effectiveLevel ? "Start Quiz" : "Generate My Quiz"}
+              {prefetchedQuestions && prefetchLevel === effectiveLevel ? "Start Guidance" : "Generate My Guidance"}
             </button>
           </div>
         )}
@@ -461,7 +477,7 @@ export default function QuizPage() {
                 onClick={() => setPhase("welcome")}
                 className="bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition font-medium"
               >
-                Retake Quiz
+                Restart Guidance
               </button>
               <Link href="/universities" className="bg-gray-100 text-gray-700 px-6 py-2.5 rounded-xl hover:bg-gray-200 transition font-medium">
                 View Universities

@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import Breadcrumb from "@/components/Breadcrumb";
+import { validate } from "@/lib/validators";
 
 export default function AdmissionProbabilityPage() {
   const [marks, setMarks] = useState({
@@ -14,8 +15,15 @@ export default function AdmissionProbabilityPage() {
   });
   const [calculated, setCalculated] = useState(false);
   const [finalProbability, setFinalProbability] = useState(0);
+  const formErrors = [
+    validate("percentage", marks.matric, { required: true, min: 0, max: 100 }),
+    validate("percentage", marks.intermediate, { required: true, min: 0, max: 100 }),
+    validate("percentage", marks.expectedTest, { required: true, min: 0, max: 100 }),
+  ].filter(Boolean);
+  const isCalculateDisabled = formErrors.length > 0;
 
   const calculateProbability = () => {
+    if (isCalculateDisabled) return;
     const matricContribution = (parseFloat(marks.matric) * 0.3) || 0;
     const interContribution = (parseFloat(marks.intermediate) * 0.5) || 0;
     const testContribution = (parseFloat(marks.expectedTest) * 0.2) || 0;
@@ -120,7 +128,7 @@ export default function AdmissionProbabilityPage() {
 
           <button
             onClick={calculateProbability}
-            disabled={!marks.matric || !marks.intermediate || !marks.expectedTest}
+            disabled={isCalculateDisabled}
             className="w-full bg-primary text-white py-3 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
           >
             Calculate Probability

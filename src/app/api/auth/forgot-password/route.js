@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import { sendPasswordResetEmail } from '@/lib/email';
+import { validate } from '@/lib/validators';
 
 export async function POST(request) {
   try {
@@ -12,10 +13,16 @@ export async function POST(request) {
       );
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailError = validate('email', normalizedEmail, { required: true });
+    if (emailError) {
+      return Response.json({ error: emailError }, { status: 400 });
+    }
+
     // Check if user exists
     const { rows: users } = await pool.query(
       'SELECT id, email FROM users WHERE email = $1',
-      [email]
+      [normalizedEmail]
     );
 
     if (users.length === 0) {
@@ -32,24 +39,29 @@ export async function POST(request) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
 
+    await pool.query(
+      'UPDATE password_reset_otps SET is_used = TRUE WHERE user_id = $1 AND is_used = FALSE',
+      [user.id]
+    );
+
     // Store OTP in database
     await pool.query(
       'INSERT INTO password_reset_otps (user_id, email, otp, expires_at) VALUES ($1, $2, $3, $4)',
-      [user.id, email, otp, expiresAt]
+      [user.id, normalizedEmail, otp, expiresAt]
     );
 
     // Send OTP via email
-    const emailSent = await sendPasswordResetEmail(email, otp);
+    const emailSent = await sendPasswordResetEmail(normalizedEmail, otp);
 
     if (!emailSent) {
-      console.error('Failed to send OTP to:', email);
+      console.error('Failed to send OTP to:', normalizedEmail);
       return Response.json(
         { error: 'Failed to send OTP email. Please try again later.' },
         { status: 500 }
       );
     }
 
-    console.log('OTP sent successfully to:', email);
+    console.log('OTP sent successfully to:', normalizedEmail);
 
     return Response.json(
       { message: 'If an account exists with this email, an OTP has been sent' },

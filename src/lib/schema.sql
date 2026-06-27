@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS universities (
 -- above won't add columns to a table that already exists).
 ALTER TABLE universities ADD COLUMN IF NOT EXISTS fee_structure_url VARCHAR(500);
 ALTER TABLE students ADD COLUMN IF NOT EXISTS test_type VARCHAR(50);
+ALTER TABLE students ADD COLUMN IF NOT EXISTS matric_type VARCHAR(50);
+ALTER TABLE students ADD COLUMN IF NOT EXISTS has_entry_test BOOLEAN DEFAULT FALSE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS test_year INT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS test_date DATE;
 
 CREATE INDEX IF NOT EXISTS idx_universities_name ON universities(name);
 CREATE INDEX IF NOT EXISTS idx_universities_location ON universities(location);

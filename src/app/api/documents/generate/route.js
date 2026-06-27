@@ -75,6 +75,12 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const { formData, documentType = 'admission-form', recommenderInfo } = body;
+    if (documentType === 'motivation-letter' || documentType === 'recommendation-request') {
+      return NextResponse.json(
+        { error: 'This document type is no longer required for admissions in this system.' },
+        { status: 400 }
+      );
+    }
 
     if (!formData) {
       return NextResponse.json({ error: 'Form data is required' }, { status: 400 });

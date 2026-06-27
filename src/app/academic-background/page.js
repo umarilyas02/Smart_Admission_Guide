@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import Breadcrumb from "@/components/Breadcrumb";
+import { validate } from "@/lib/validators";
 
 export default function AcademicBackgroundPage() {
   const [formData, setFormData] = useState({
@@ -17,12 +18,18 @@ export default function AcademicBackgroundPage() {
   const [showResults, setShowResults] = useState(false);
   const [probability, setProbability] = useState(0);
   const [recommendations, setRecommendations] = useState([]);
+  const formErrors = [
+    validate("percentage", formData.matricMarks, { required: true, min: 33, max: 100 }),
+    validate("percentage", formData.intermediateMarks, { required: true, min: 33, max: 100 }),
+  ].filter(Boolean);
+  const isAnalyzeDisabled = analyzing || formErrors.length > 0;
 
   const handleChange = (field) => (e) => {
     setFormData({ ...formData, [field]: e.target.value });
   };
 
   const handleAnalyze = () => {
+    if (isAnalyzeDisabled) return;
     setAnalyzing(true);
     
     // Simulate analysis
@@ -135,7 +142,7 @@ export default function AcademicBackgroundPage() {
             <div className="md:col-span-2">
               <button
                 onClick={handleAnalyze}
-                disabled={analyzing || !formData.matricMarks || !formData.intermediateMarks}
+                disabled={isAnalyzeDisabled}
                 className="bg-primary text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {analyzing ? "Analyzing..." : "Analyze Profile"}

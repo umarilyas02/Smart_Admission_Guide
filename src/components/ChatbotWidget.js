@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, ChevronDown, Bot, Lock, Database, Globe } from "lucide-react";
-
-const ANON_LIMIT = 1;
-const ANON_STORAGE_KEY = "sag_anon_used";
+import { Send, Sparkles, ChevronDown, Bot, Lock, Database, Globe, User } from "lucide-react";
 
 const WELCOME_MSG = {
   id: "welcome",
@@ -165,15 +162,15 @@ function MessageBubble({ msg }) {
   );
 }
 
-function AnonGate() {
+function LoginGate() {
   return (
     <div className="p-4 bg-purple-50 border-t border-purple-100 flex flex-col items-center gap-3 text-center">
       <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
         <Lock className="w-5 h-5 text-purple-600" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-gray-800">You&apos;ve used your free question</p>
-        <p className="text-xs text-gray-500 mt-1">Log in or sign up to keep chatting with SAG AI.</p>
+        <p className="text-sm font-semibold text-gray-800">Chat Requires Login</p>
+        <p className="text-xs text-gray-500 mt-1">Sign in to chat with SAG AI and get personalized admission guidance.</p>
       </div>
       <div className="flex gap-2 w-full">
         <a
@@ -186,9 +183,33 @@ function AnonGate() {
           href="/auth?mode=register"
           className="flex-1 text-sm text-center bg-linear-to-r from-purple-600 to-indigo-600 text-white py-2 rounded-xl font-medium hover:from-purple-700 hover:to-indigo-700 transition"
         >
-          Sign up free
+          Sign up
         </a>
       </div>
+    </div>
+  );
+}
+
+function ProfileCard({ profile }) {
+  if (!profile) return null;
+
+  const { user, student } = profile;
+  return (
+    <div className="p-3 bg-purple-50 border-t border-purple-100 text-xs space-y-2">
+      <div className="flex items-center gap-2">
+        <User className="w-4 h-4 text-purple-600 shrink-0" />
+        <span className="font-semibold text-gray-800">{user?.name || "User"}</span>
+      </div>
+      {student?.academic_level && (
+        <div className="text-gray-600">
+          <span className="font-medium">Stream:</span> {student.academic_level.toUpperCase().replace(/_/g, " ")}
+        </div>
+      )}
+      {student?.intermediate_marks && (
+        <div className="text-gray-600">
+          <span className="font-medium">Score:</span> {student.intermediate_marks}%
+        </div>
+      )}
     </div>
   );
 }
@@ -200,27 +221,43 @@ export default function ChatbotWidget() {
   const [isTyping, setIsTyping] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [anonBlocked, setAnonBlocked] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("auth_token");
-      setIsLoggedIn(!!token);
-      if (token) setAnonBlocked(false);
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/check");
+        const data = await res.json();
+        if (data.authenticated) {
+          setIsLoggedIn(true);
+          fetchUserProfile();
+        } else {
+          setIsLoggedIn(false);
+          setUserProfile(null);
+        }
+      } catch {
+        setIsLoggedIn(false);
+        setUserProfile(null);
+      }
     };
     checkAuth();
-    window.addEventListener("storage", checkAuth);
-    return () => window.removeEventListener("storage", checkAuth);
   }, []);
 
-  useEffect(() => {
-    if (!isLoggedIn) {
-      const used = parseInt(localStorage.getItem(ANON_STORAGE_KEY) || "0", 10);
-      if (used >= ANON_LIMIT) setAnonBlocked(true);
+  const fetchUserProfile = async () => {
+    try {
+      const res = await fetch("/api/profile", {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserProfile(data);
+      }
+    } catch {
+      console.error("Failed to fetch profile");
     }
-  }, [isLoggedIn]);
+  };
 
   useEffect(() => {
     const handler = () => setIsOpen(true);
@@ -253,7 +290,7 @@ export default function ChatbotWidget() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || isTyping) return;
+    if (!text || text.length > 500 || isTyping || !isLoggedIn) return;
 
     const userMsg = { id: Date.now(), role: "user", text, time: getTime() };
     const updatedMsgs = [...messages, userMsg];
@@ -262,19 +299,20 @@ export default function ChatbotWidget() {
     setIsTyping(true);
 
     try {
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-
       const res = await fetch("/api/chatbot", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: "include",
         body: JSON.stringify({ messages: buildHistory(updatedMsgs) }),
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to get response");
+      }
 
       const dbText = data.dbResponse || data.message || "Sorry, something went wrong.";
       const webText = data.webResponse || null;
@@ -292,12 +330,6 @@ export default function ChatbotWidget() {
 
       setMessages((prev) => [...prev, botMsg]);
       if (!isOpen) setHasUnread(true);
-
-      if (!token) {
-        const used = parseInt(localStorage.getItem(ANON_STORAGE_KEY) || "0", 10) + 1;
-        localStorage.setItem(ANON_STORAGE_KEY, String(used));
-        if (used >= ANON_LIMIT) setAnonBlocked(true);
-      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -316,11 +348,9 @@ export default function ChatbotWidget() {
   const handleKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      if (input.trim() && input.trim().length <= 500) handleSend();
     }
   };
-
-  const showGate = anonBlocked && !isLoggedIn;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
@@ -379,39 +409,38 @@ export default function ChatbotWidget() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Anon gate replaces input when limit hit */}
-          {showGate ? (
-            <AnonGate />
+          {/* Login gate or profile + input */}
+          {!isLoggedIn ? (
+            <LoginGate />
           ) : (
-            <div className="p-3 bg-white border-t border-gray-100 shrink-0">
-              {!isLoggedIn && (
-                <p className="text-center text-xs text-amber-600 mb-2">
-                  <a href="/auth?mode=login" className="underline font-medium">Log in</a> for extra credits.
+            <>
+              <ProfileCard profile={userProfile} />
+              <div className="p-3 bg-white border-t border-gray-100 shrink-0">
+                <div className="flex items-end gap-2 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-100 transition p-1 pl-3">
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    maxLength={500}
+                    onKeyDown={handleKey}
+                    placeholder="Ask about admissions..."
+                    className="flex-1 bg-transparent text-sm text-gray-700 resize-none focus:outline-none py-1.5 placeholder-gray-400 max-h-24"
+                    style={{ lineHeight: "1.5" }}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim() || input.trim().length > 500 || isTyping}
+                    className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white disabled:opacity-40 hover:from-purple-700 hover:to-indigo-700 transition shrink-0 mb-0.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <p className="text-center text-xs text-gray-400 mt-1.5">
+                  Powered by <span className="font-medium text-purple-500">SAG AI</span>
                 </p>
-              )}
-              <div className="flex items-end gap-2 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-100 transition p-1 pl-3">
-                <textarea
-                  ref={inputRef}
-                  rows={1}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKey}
-                  placeholder="Ask about admissions..."
-                  className="flex-1 bg-transparent text-sm text-gray-700 resize-none focus:outline-none py-1.5 placeholder-gray-400 max-h-24"
-                  style={{ lineHeight: "1.5" }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isTyping}
-                  className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white disabled:opacity-40 hover:from-purple-700 hover:to-indigo-700 transition shrink-0 mb-0.5"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
               </div>
-              <p className="text-center text-xs text-gray-400 mt-1.5">
-                Powered by <span className="font-medium text-purple-500">SAG AI</span>
-              </p>
-            </div>
+            </>
           )}
         </div>
       )}

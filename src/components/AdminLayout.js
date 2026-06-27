@@ -9,34 +9,27 @@ import { Toaster } from "sonner";
 
 const ADMIN_EMAIL = "smartadmissionguide@gmail.com";
 
-function decodeToken(token) {
-  try {
-    const base64Url = token.split(".")[1];
-    // JWT uses base64url (- and _ instead of + and /), atob needs standard base64
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-    return JSON.parse(atob(padded));
-  } catch {
-    return null;
-  }
-}
-
 export default function AdminLayout({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      router.push("/auth?mode=login");
-      return;
-    }
-    const decoded = decodeToken(token);
-    if (!decoded || decoded.email !== ADMIN_EMAIL) {
-      router.push("/");
-      return;
-    }
-    setLoading(false);
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/check');
+        const data = await res.json();
+        if (!data.authenticated || data.user?.email !== ADMIN_EMAIL) {
+          router.push("/");
+          return;
+        }
+      } catch {
+        router.push("/auth?mode=login");
+        return;
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
   }, [router]);
 
   if (loading) {

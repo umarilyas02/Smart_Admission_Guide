@@ -4,7 +4,7 @@ const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
 export async function POST(request) {
   try {
-    const { questions, answers, academic_level } = await request.json();
+    const { questions, answers, academic_level, interests, matric_marks, intermediate_marks } = await request.json();
 
     if (!questions || !answers) {
       return Response.json(
@@ -39,21 +39,30 @@ export async function POST(request) {
 
     const prompt = `You are an expert academic counselor for a Smart Admission Guide (SAG) system in Pakistan. Based on a student's aptitude and interest quiz answers, recommend the most suitable academic department for them.${levelNote}
 
-Student's Quiz Responses:
+Student Profile:
+- Academic Level: ${academic_level || "Not specified"}
+- Matric Marks: ${matric_marks != null ? matric_marks + "%" : "Not provided"}
+- Intermediate Marks: ${intermediate_marks != null ? intermediate_marks + "%" : "Not provided"}
+- Saved Interests: ${interests || "Not specified"}
+
+Student Guidance Responses:
 ${answersText}
 
 Analyze these responses carefully and respond in this EXACT JSON format (no extra text, no markdown):
 {
   "primaryDepartment": "Full Department Name",
   "field": "Broad field (e.g. Engineering, Medical, Business, IT, Arts)",
-  "confidence": 82,
+  "confidence": 76,
   "alternativeDepartments": ["Second Best Department", "Third Best Department"],
   "explanation": "2-3 sentence explanation of why this department matches the student's profile.",
   "strengths": ["Strength observed 1", "Strength observed 2", "Strength observed 3"],
   "careers": ["Career path 1", "Career path 2", "Career path 3"]
 }
 
-IMPORTANT: Choose ONLY from these eligible departments: ${allowedPrograms}.`;
+IMPORTANT:
+- Choose ONLY from these eligible departments: ${allowedPrograms}.
+- Interests must affect the recommendation. If two programs are academically similar, prefer the one closest to Saved Interests.
+- Confidence should vary realistically from 62 to 96 based on fit, marks, interest alignment, and answer consistency. Do not default to 85-88.`;
 
     const message = await client.messages.create({
       model: process.env.CLAUDE_MODEL,
@@ -69,6 +78,10 @@ IMPORTANT: Choose ONLY from these eligible departments: ${allowedPrograms}.`;
     }
 
     const recommendation = JSON.parse(jsonMatch[0]);
+    const confidence = Number(recommendation.confidence);
+    recommendation.confidence = Number.isFinite(confidence)
+      ? Math.max(62, Math.min(96, Math.round(confidence)))
+      : 74;
 
     return Response.json({ recommendation });
   } catch (error) {

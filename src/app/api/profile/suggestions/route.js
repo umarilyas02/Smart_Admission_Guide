@@ -12,7 +12,7 @@ export async function POST(req) {
   const decoded = verifyToken(token);
   if (!decoded?.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { academic_level, matric_marks, intermediate_marks } = await req.json();
+  const { academic_level, matric_marks, intermediate_marks, interests } = await req.json();
 
   const PROGRAMS_BY_LEVEL = {
     fa:              "Mass Communication, Journalism, Law (LLB), Psychology, Economics, Sociology, Social Work, Education, Political Science, English Literature, Fine Arts, International Relations, Islamic Studies, Public Administration, Linguistics, History",
@@ -31,8 +31,9 @@ Student's Previous Studies:
 - Education Level: ${academic_level || "Not specified"}
 - Matric Marks: ${matric_marks != null ? matric_marks + "%" : "Not provided"}
 - Intermediate Marks: ${intermediate_marks != null ? intermediate_marks + "%" : "Not provided"}
+- Saved Interests: ${interests || "Not specified"}
 
-Based only on their academic background and marks (not interests or test scores), recommend the best-fit program.
+Based on their academic background, marks, and saved interests, recommend the best-fit program.
 
 IMPORTANT: Only recommend programs the student is eligible for based on their education level. Do NOT suggest programs outside this allowed list.
 

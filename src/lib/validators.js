@@ -24,6 +24,28 @@ function toRegExp(pattern) {
   }
 }
 
+export function isValidEmail(value) {
+  const email = String(value || "").trim();
+  if (email.length > 254) return false;
+  if (email.includes("..")) return false;
+
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+
+  const [local, domain] = parts;
+  if (!local || !domain) return false;
+  if (local.length > 64 || local.startsWith(".") || local.endsWith(".")) return false;
+  if (!/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local)) return false;
+
+  const labels = domain.split(".");
+  if (labels.length < 2) return false;
+  if (labels.some((label) => !label || label.length > 63)) return false;
+  if (!labels.every((label) => /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(label))) return false;
+  if (!/^[A-Za-z]{2,63}$/.test(labels[labels.length - 1])) return false;
+
+  return true;
+}
+
 /**
  * Validates a value based on its semantic type.
  * Returns an error string or null if valid.
@@ -44,9 +66,7 @@ export function validate(type, value, { required = false, compareValue, min, max
   switch (type) {
     case "email":
       if (typeof maxLength === "number" && raw.length > maxLength) return `Must be at most ${maxLength} characters`;
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
-        ? null
-        : "Enter a valid email address";
+      return isValidEmail(trimmed) ? null : "Enter a valid email address";
 
     case "phone": {
       const clean = raw.replace(/[\s\-()+]/g, "");

@@ -12,11 +12,12 @@ import {
 import ValidatedInput from "@/components/ValidatedInput";
 import { authFetch } from "@/lib/authFetch";
 import Breadcrumb from "@/components/Breadcrumb";
+import { validate } from "@/lib/validators";
 
 const SECTIONS = [
   { id: "personal",  label: "Personal Info",        icon: User,          desc: "Your name and contact details" },
   { id: "academic",  label: "Academic Background",   icon: GraduationCap, desc: "Education level and marks" },
-  { id: "test",      label: "Entry Test",            icon: ClipboardList, desc: "MDCAT / ECAT / SAT score" },
+  { id: "test",      label: "Entry Test",            icon: ClipboardList, desc: "Only if required by your university" },
   { id: "interests", label: "Interests & Goals",     icon: Lightbulb,     desc: "Tell AI about your passions" },
 ];
 
@@ -70,6 +71,9 @@ const INTEREST_CHIPS = {
   ],
 };
 
+const INTEREST_MIN_WORDS = 20;
+const INTEREST_MAX_WORDS = 50;
+
 const MATRIC_TYPES = [
   { value: "medical_science",  label: "Medical Science (Biology)" },
   { value: "computer_science", label: "Computer Science" },
@@ -78,6 +82,23 @@ const MATRIC_TYPES = [
   { value: "engineering",      label: "Engineering / Physics" },
   { value: "general",          label: "General Science" },
 ];
+const MATRIC_TYPE_VALUES = new Set(MATRIC_TYPES.map(t => t.value));
+const ACADEMIC_LEVEL_VALUES = new Set(["fsc_medical", "fsc_engineering", "ics", "icom", "fa"]);
+
+const FIELD_LABELS = {
+  name: "Full Name",
+  phone: "Phone Number",
+  matric_type: "Matric Subject Stream",
+  academic_level: "Intermediate Stream",
+  matric_marks: "Matric Marks",
+  intermediate_marks: "Intermediate Marks",
+  has_entry_test: "Entry Test Required?",
+  test_type: "Test Type",
+  test_score: "Test Score",
+  test_year: "Test Year",
+  test_date: "Test Date",
+  interests: "Interests & Goals",
+};
 
 // Which tests are relevant for each education level
 const TESTS_FOR_LEVEL = {
@@ -94,34 +115,97 @@ function getRelevantTests(academic_level) {
   return TEST_TYPES.filter(t => allowed.includes(t.value));
 }
 
+function countWords(value) {
+  return String(value || "").trim().split(/\s+/).filter(Boolean).length;
+}
+
+function hasSelectedInterestChip(form) {
+  const chips = INTEREST_CHIPS[form.academic_level] || [];
+  const selected = String(form.interests || "")
+    .split(",")
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+  return chips.some(chip => selected.includes(chip.toLowerCase()));
+}
+
+function getInterestError(form) {
+  const value = String(form.interests || "").trim();
+  if (!value) return "Select at least one interest or write your career goals";
+  if (hasSelectedInterestChip(form)) return null;
+
+  const words = countWords(value);
+  if (words < INTEREST_MIN_WORDS) return `Write at least ${INTEREST_MIN_WORDS} words, or select an interest chip`;
+  if (words > INTEREST_MAX_WORDS) return `Keep interests within ${INTEREST_MAX_WORDS} words`;
+  return null;
+}
+
+function getFieldError(field, form) {
+  const value = form[field];
+  const testDef = TEST_TYPES.find(t => t.value === form.test_type);
+
+  switch (field) {
+    case "name":
+      return validate("name", value, { required: true });
+    case "phone":
+      return validate("phone", value, { required: true });
+    case "matric_type":
+      if (validate("select", value, { required: true })) return "This field is required";
+      return MATRIC_TYPE_VALUES.has(value) ? null : "Select a valid option";
+    case "academic_level":
+      if (validate("select", value, { required: true })) return "This field is required";
+      return ACADEMIC_LEVEL_VALUES.has(value) ? null : "Select a valid option";
+    case "matric_marks":
+    case "intermediate_marks":
+      return validate("percentage", value, { required: true, min: 33, max: 100 });
+    case "has_entry_test":
+      if (validate("select", value, { required: true })) return "This field is required";
+      return value === "yes" || value === "no" ? null : "Select a valid option";
+    case "test_type":
+      if (form.has_entry_test !== "yes") return null;
+      if (validate("select", value, { required: true })) return "This field is required";
+      return getRelevantTests(form.academic_level).some(t => t.value === value && t.value !== "none")
+        ? null
+        : "Select a valid option";
+    case "test_score":
+      if (form.has_entry_test !== "yes") return null;
+      return validate("number", value, { required: true, min: 0, max: testDef?.max ?? 999 });
+    case "test_year":
+      if (form.has_entry_test !== "yes") return null;
+      return validate("year", value, { required: true, min: 1950 });
+    case "test_date":
+      if (!value) return null;
+      return validate("date", value, { required: false });
+    case "interests":
+      return getInterestError(form);
+    default:
+      return null;
+  }
+}
+
+function getSectionErrors(id, form) {
+  const fieldsBySection = {
+    personal: ["name", "phone"],
+    academic: ["matric_type", "academic_level", "matric_marks", "intermediate_marks"],
+    test: form.has_entry_test === "yes"
+      ? ["has_entry_test", "test_type", "test_score", "test_year", "test_date"]
+      : ["has_entry_test"],
+    interests: ["interests"],
+  };
+
+  return (fieldsBySection[id] || [])
+    .map(field => ({ field, error: getFieldError(field, form) }))
+    .filter(item => item.error);
+}
+
 function isSectionComplete(id, f) {
-  if (id === "personal")  return !!(f.name?.trim() && f.phone?.trim());
-  if (id === "academic")  return !!(f.academic_level && f.matric_type && f.matric_marks && f.intermediate_marks);
-  if (id === "test")      return !!(f.test_type && (f.test_type === "none" || f.test_score));
-  if (id === "interests") return !!f.interests?.trim();
-  return false;
+  return getSectionErrors(id, f).length === 0;
 }
 
 function getMissingFields(id, f) {
-  const missing = [];
-  if (id === "personal") {
-    if (!f.name?.trim())  missing.push("Full Name");
-    if (!f.phone?.trim()) missing.push("Phone Number");
-  }
-  if (id === "academic") {
-    if (!f.academic_level)     missing.push("Intermediate Stream");
-    if (!f.matric_type)        missing.push("Matric Subject Stream");
-    if (!f.matric_marks)       missing.push("Matric Marks");
-    if (!f.intermediate_marks) missing.push("Intermediate Marks");
-  }
-  if (id === "test") {
-    if (!f.test_type)                                   missing.push("Test Type");
-    else if (f.test_type !== "none" && !f.test_score)  missing.push("Test Score");
-  }
-  if (id === "interests") {
-    if (!f.interests?.trim()) missing.push("Interests & Goals");
-  }
-  return missing;
+  return getSectionErrors(id, f).map(item => {
+    if (item.field === "interests") return item.error;
+    return `${FIELD_LABELS[item.field] || item.field}: ${item.error}`;
+  });
 }
 
 function calcCompletion(form) {
@@ -139,7 +223,7 @@ export default function ProfileProgressPage() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [form, setForm] = useState({
     name: "", phone: "", academic_level: "", matric_type: "", matric_marks: "",
-    intermediate_marks: "", test_type: "", test_score: "", interests: "",
+    intermediate_marks: "", has_entry_test: "", test_type: "", test_score: "", test_year: "", test_date: "", interests: "",
   });
   const router = useRouter();
 
@@ -153,6 +237,7 @@ export default function ProfileProgressPage() {
           academic_level:     formData.academic_level,
           matric_marks:       formData.matric_marks,
           intermediate_marks: formData.intermediate_marks,
+          interests:          formData.interests,
         }),
       });
       if (res.ok) {
@@ -180,8 +265,11 @@ export default function ProfileProgressPage() {
           matric_type:        data.student?.matric_type     || "",
           matric_marks:       data.student?.matric_marks    != null ? String(data.student.matric_marks) : "",
           intermediate_marks: data.student?.intermediate_marks != null ? String(data.student.intermediate_marks) : "",
+          has_entry_test:     data.student?.has_entry_test === true ? "yes" : data.student?.has_entry_test === false ? "no" : (data.student?.test_type || data.student?.test_score ? "yes" : ""),
           test_type:          data.student?.test_type        || "",
           test_score:         data.student?.test_score      != null ? String(data.student.test_score) : "",
+          test_year:          data.student?.test_year       != null ? String(data.student.test_year) : "",
+          test_date:          data.student?.test_date        ? String(data.student.test_date).slice(0, 10) : "",
           interests:          data.student?.interests        || "",
         };
         setForm(loaded);
@@ -197,6 +285,13 @@ export default function ProfileProgressPage() {
   const set = (field, value) => setForm(p => ({ ...p, [field]: value }));
 
   const handleSave = async () => {
+    const incomplete = SECTIONS.filter(s => !isSectionComplete(s.id, form));
+    if (incomplete.length > 0) {
+      setApiError(`Complete valid inputs before saving: ${incomplete.map(s => s.label).join(", ")}`);
+      setActive(incomplete[0].id);
+      return;
+    }
+
     setSaving(true);
     setApiError("");
     try {
@@ -226,6 +321,7 @@ export default function ProfileProgressPage() {
   const missingFields     = getMissingFields(active, form);
   const incompleteSections = SECTIONS.filter(s => !isSectionComplete(s.id, form));
   const allComplete       = incompleteSections.length === 0;
+  const interestError     = getInterestError(form);
 
   if (loading) {
     return (
@@ -273,7 +369,7 @@ export default function ProfileProgressPage() {
           </div>
           {completion === 100 && (
             <p className="text-green-600 text-xs font-medium mt-2 flex items-center gap-1">
-              <Check className="w-3.5 h-3.5" /> Profile complete — you'll get the most accurate recommendations!
+              <Check className="w-3.5 h-3.5" /> Profile complete — you will get the most accurate recommendations!
             </p>
           )}
           {completion < 100 && (
@@ -335,17 +431,6 @@ export default function ProfileProgressPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
 
               {/* Back button — steps 2, 3, 4 */}
-              {activeIdx > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setActive(SECTIONS[activeIdx - 1].id)}
-                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition mb-5 -mt-1"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Back
-                </button>
-              )}
-
               {/* ── Personal Info ── */}
               {active === "personal" && (
                 <div>
@@ -380,42 +465,45 @@ export default function ProfileProgressPage() {
                   <div className="space-y-5">
                     <ValidatedInput
                       type="select"
-                      label="Intermediate Stream"
-                      value={form.academic_level}
-                      onChange={e => {
-                        const level = e.target.value;
-                        const relevant = getRelevantTests(level).map(t => t.value);
-                        setForm(p => ({
-                          ...p,
-                          academic_level: level,
-                          test_type:  p.test_type && !relevant.includes(p.test_type) ? "" : p.test_type,
-                          test_score: p.test_type && !relevant.includes(p.test_type) ? "" : p.test_score,
-                        }));
-                      }}
+                      label="What did you study in Matric?"
+                      value={form.matric_type}
+                      onChange={e => set("matric_type", e.target.value)}
                       required
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
                     >
-                      <option value="">Select your intermediate stream</option>
-                      <option value="fsc_medical">FSc Pre-Medical</option>
-                      <option value="fsc_engineering">FSc Pre-Engineering</option>
-                      <option value="ics">ICS (Computer Science)</option>
-                      <option value="icom">ICom (Commerce)</option>
-                      <option value="fa">FA (Arts)</option>
+                      <option value="">Select matric stream</option>
+                      {MATRIC_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
                     </ValidatedInput>
 
-                    {form.academic_level && (
+                    {form.matric_type && (
                       <ValidatedInput
                         type="select"
-                        label="What did you study in Matric?"
-                        value={form.matric_type}
-                        onChange={e => set("matric_type", e.target.value)}
+                        label="Intermediate Stream"
+                        value={form.academic_level}
+                        onChange={e => {
+                          const level = e.target.value;
+                          const relevant = getRelevantTests(level).map(t => t.value);
+                          setForm(p => ({
+                            ...p,
+                            academic_level: level,
+                            has_entry_test: level ? p.has_entry_test : "",
+                            test_type:  p.test_type && !relevant.includes(p.test_type) ? "" : p.test_type,
+                            test_score: p.test_type && !relevant.includes(p.test_type) ? "" : p.test_score,
+                            test_year:  p.test_type && !relevant.includes(p.test_type) ? "" : p.test_year,
+                            test_date:  p.test_type && !relevant.includes(p.test_type) ? "" : p.test_date,
+                          }));
+                        }}
                         required
                         inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
                       >
-                        <option value="">Select matric stream</option>
-                        {MATRIC_TYPES.map(t => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
+                        <option value="">Select your intermediate stream</option>
+                        <option value="fsc_medical">FSc Pre-Medical</option>
+                        <option value="fsc_engineering">FSc Pre-Engineering</option>
+                        <option value="ics">ICS (Computer Science)</option>
+                        <option value="icom">ICom (Commerce)</option>
+                        <option value="fa">FA (Arts)</option>
                       </ValidatedInput>
                     )}
 
@@ -468,26 +556,52 @@ export default function ProfileProgressPage() {
               {/* ── Entry Test ── */}
               {active === "test" && (
                 <div>
-                  <SectionHeader icon={ClipboardList} title="Entry Test Score" subtitle="Select your test type and enter your score" />
-                  <div className="max-w-sm space-y-5">
+                  <SectionHeader icon={ClipboardList} title="Entry Test Details" subtitle="Most universities do not require every test. Add it only if you attempted one." />
+                  <div className="max-w-md space-y-5">
                     <ValidatedInput
                       type="select"
-                      label="Test Type"
-                      value={form.test_type}
-                      onChange={e => { set("test_type", e.target.value); set("test_score", ""); }}
+                      label="Have you attempted an entry test?"
+                      value={form.has_entry_test}
+                      onChange={e => {
+                        const value = e.target.value;
+                        setForm(p => ({
+                          ...p,
+                          has_entry_test: value,
+                          test_type: value === "yes" ? p.test_type : "",
+                          test_score: value === "yes" ? p.test_score : "",
+                          test_year: value === "yes" ? p.test_year : "",
+                          test_date: value === "yes" ? p.test_date : "",
+                        }));
+                      }}
                       required
-                      hint={form.academic_level ? "Showing tests relevant to your education level" : "Select your education level first to see relevant tests"}
                       inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
                     >
-                      <option value="">Select test type</option>
-                      {getRelevantTests(form.academic_level).map(t => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
+                      <option value="">Select yes or no</option>
+                      <option value="no">No, my target university does not require it</option>
+                      <option value="yes">Yes, I have attempted / will submit a test</option>
                     </ValidatedInput>
 
-                    {form.test_type && form.test_type !== "none" && (() => {
+                    {form.has_entry_test === "yes" && (
+                      <ValidatedInput
+                        type="select"
+                        label="Test Type"
+                        value={form.test_type}
+                        onChange={e => { set("test_type", e.target.value); set("test_score", ""); }}
+                        required
+                        hint={form.academic_level ? "Showing tests relevant to your education level" : "Select your education level first to see relevant tests"}
+                        inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 bg-white appearance-none pr-10"
+                      >
+                        <option value="">Select test type</option>
+                        {getRelevantTests(form.academic_level).filter(t => t.value !== "none").map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </ValidatedInput>
+                    )}
+
+                    {form.has_entry_test === "yes" && form.test_type && (() => {
                       const testDef = TEST_TYPES.find(t => t.value === form.test_type);
                       return (
+                        <>
                         <ValidatedInput
                           type="number"
                           label={`${testDef.label} Score`}
@@ -502,12 +616,33 @@ export default function ProfileProgressPage() {
                           suffix={`/ ${testDef.max}`}
                           inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white pr-20"
                         />
+                        <ValidatedInput
+                          type="year"
+                          label="Test Year"
+                          value={form.test_year}
+                          onChange={e => set("test_year", e.target.value)}
+                          min={1950}
+                          maxLength={4}
+                          placeholder="2026"
+                          required
+                          hint="Enter the year shown on your test result card"
+                          inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white"
+                        />
+                        <ValidatedInput
+                          type="date"
+                          label="Test Date"
+                          value={form.test_date}
+                          onChange={e => set("test_date", e.target.value)}
+                          required={false}
+                          inputClassName="px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white"
+                        />
+                        </>
                       );
                     })()}
                   </div>
 
                   <div className="mt-6 p-4 bg-yellow-50 border border-yellow-100 rounded-xl text-sm text-yellow-700">
-                    <strong>Tip:</strong> Your entry test score is used to match you with universities whose merit criteria you meet.
+                    <strong>Tip:</strong> If a university requires a test, keep the official result card ready. Certificates are usually optional, but result cards are required.
                   </div>
                 </div>
               )}
@@ -531,12 +666,19 @@ export default function ProfileProgressPage() {
                               key={chip}
                               type="button"
                               onClick={() => {
-                                if (already) return;
-                                set("interests", form.interests ? `${form.interests.trimEnd()}, ${chip}` : chip);
+                                const parts = form.interests
+                                  .split(",")
+                                  .map(item => item.trim())
+                                  .filter(Boolean);
+                                if (already) {
+                                  set("interests", parts.filter(item => item.toLowerCase() !== chip.toLowerCase()).join(", "));
+                                  return;
+                                }
+                                set("interests", parts.length ? `${parts.join(", ")}, ${chip}` : chip);
                               }}
                               className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                                 already
-                                  ? "bg-blue-600 text-white border-blue-600 cursor-default"
+                                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
                                   : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600"
                               }`}
                             >
@@ -554,8 +696,9 @@ export default function ProfileProgressPage() {
                       label="Describe your interests and career goals"
                       value={form.interests}
                       onChange={e => set("interests", e.target.value)}
-                      rows={6}
-                      maxLength={1000}
+                      rows={4}
+                      maxWords={50}
+                      maxLength={300}
                       placeholder={
                         form.academic_level === "fa"
                           ? "e.g. I'm passionate about literature and creative writing. I enjoy history, political science, and social issues. I want to pursue a career in journalism, law, or public service..."
@@ -575,8 +718,14 @@ export default function ProfileProgressPage() {
 
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700 flex items-start gap-2">
                     <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span>The more detail you provide, the better our AI can match you with the right departments and universities.</span>
+                    <span>Select chips or write 20 to 50 focused words. Your saved interests are reused across the system.</span>
                   </div>
+
+                  {interestError && (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                      {interestError}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -616,6 +765,16 @@ export default function ProfileProgressPage() {
                   </div>
 
                   <div className="flex gap-3">
+                    {activeIdx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActive(SECTIONS[activeIdx - 1].id)}
+                        className="flex items-center gap-2 px-6 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 active:scale-95 transition-all"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Back
+                      </button>
+                    )}
                     {/* Sections 1–3: blue Next Section button only */}
                     {!isLastSection && (
                       <button

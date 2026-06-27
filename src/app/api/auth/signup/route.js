@@ -1,6 +1,7 @@
 import pool from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import { sendWelcomeEmail } from '@/lib/email';
+import { validate } from '@/lib/validators';
 
 export async function POST(request) {
   try {
@@ -12,6 +13,12 @@ export async function POST(request) {
         { error: 'All fields are required' },
         { status: 400 }
       );
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailError = validate('email', normalizedEmail, { required: true });
+    if (emailError) {
+      return Response.json({ error: emailError }, { status: 400 });
     }
 
     if (password !== confirmPassword) {
@@ -31,7 +38,7 @@ export async function POST(request) {
     // Check if user already exists
     const { rows: existingUser } = await pool.query(
       'SELECT id FROM users WHERE email = $1',
-      [email]
+      [normalizedEmail]
     );
 
     if (existingUser.length > 0) {
@@ -47,11 +54,11 @@ export async function POST(request) {
     // Create user
     const { rows: created } = await pool.query(
       'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id',
-      [name, email, hashedPassword]
+      [name, normalizedEmail, hashedPassword]
     );
 
     // Send welcome email
-    await sendWelcomeEmail(email, name);
+    await sendWelcomeEmail(normalizedEmail, name);
 
     return Response.json(
       {

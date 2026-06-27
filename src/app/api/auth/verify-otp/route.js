@@ -1,4 +1,5 @@
 import pool from '@/lib/db';
+import { validate } from '@/lib/validators';
 
 export async function POST(request) {
   try {
@@ -8,9 +9,15 @@ export async function POST(request) {
       return Response.json({ error: 'Email and OTP are required' }, { status: 400 });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailError = validate('email', normalizedEmail, { required: true });
+    if (emailError) {
+      return Response.json({ error: emailError }, { status: 400 });
+    }
+
     const { rows } = await pool.query(
       'SELECT expires_at, is_used FROM password_reset_otps WHERE email = $1 AND otp = $2 ORDER BY created_at DESC LIMIT 1',
-      [email, otp]
+      [normalizedEmail, otp]
     );
 
     if (rows.length === 0) {

@@ -22,6 +22,16 @@ const TYPE_STYLES = {
   warning: "bg-orange-100 text-orange-800",
 };
 
+function getNotificationErrors(form) {
+  const errors = [];
+  if (!form.title.trim() || form.title.trim().length < 2) errors.push("Title is required");
+  if (!form.message.trim() || form.message.trim().length < 5) errors.push("Message must be at least 5 characters");
+  if (!Object.keys(TYPE_STYLES).includes(form.type)) errors.push("Select a valid notification type");
+  if (form.title.length > 120) errors.push("Title must be at most 120 characters");
+  if (form.message.length > 1000) errors.push("Message must be at most 1000 characters");
+  return errors;
+}
+
 export default function AdminNotifications() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -29,6 +39,7 @@ export default function AdminNotifications() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [sending, setSending] = useState(false);
+  const formErrors = getNotificationErrors(form);
 
   const token = () => localStorage.getItem("auth_token");
 
@@ -46,10 +57,7 @@ export default function AdminNotifications() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.message.trim()) {
-      toast.error("Title and message are required");
-      return;
-    }
+    if (formErrors.length > 0) { toast.error(formErrors[0]); return; }
     setSending(true);
     try {
       const res = await fetch("/api/admin/notifications", {
@@ -203,7 +211,7 @@ export default function AdminNotifications() {
                 <div className="flex gap-3 pt-1">
                   <button
                     type="submit"
-                    disabled={sending}
+                    disabled={sending || formErrors.length > 0}
                     className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition font-medium"
                   >
                     {sending ? "Sending..." : "Send to All Users"}

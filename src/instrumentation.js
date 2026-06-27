@@ -26,5 +26,5 @@ export async function register() {
     sendReminders();
   });
 
-  console.log('[Reminder Cron] Scheduled — runs daily at 08:00 AM');
+  // console.log('[Reminder Cron] Scheduled — runs daily at 08:00 AM');
 }

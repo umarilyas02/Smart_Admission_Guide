@@ -62,6 +62,40 @@ function SelectFilter({ label, options, value, onChange, placeholder }) {
   );
 }
 
+const PROGRAM_KEYWORDS_BY_LEVEL = {
+  fa: ["mass communication", "journalism", "law", "psychology", "economics", "sociology", "education", "political", "english", "fine arts", "history", "international relations", "islamic"],
+  fsc_medical: ["mbbs", "medicine", "pharmacy", "dentistry", "physiotherapy", "nursing", "biotechnology", "microbiology", "biomedical", "veterinary", "public health", "nutrition"],
+  fsc_engineering: ["engineering", "architecture", "civil", "mechanical", "electrical", "chemical", "aerospace", "environmental", "mechatronics"],
+  ics: ["computer", "software", "data science", "artificial intelligence", "cyber", "information technology", "it", "mathematics"],
+  icom: ["business", "bba", "accounting", "finance", "economics", "commerce", "banking", "marketing", "human resource", "supply chain", "public administration"],
+};
+
+function normalizeText(value = "") {
+  return String(value).toLowerCase();
+}
+
+function dedupePrograms(programs = []) {
+  const seen = new Set();
+  return programs.filter((program) => {
+    const key = normalizeText(program.name).replace(/[\s-]+/g, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function profileMatchesProgram(program, student) {
+  const haystack = `${normalizeText(program?.name)} ${normalizeText(program?.eligibility)}`;
+  const levelKeywords = PROGRAM_KEYWORDS_BY_LEVEL[student?.academic_level] || [];
+  const interestTerms = normalizeText(student?.interests)
+    .split(/[, ]+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 4);
+
+  return levelKeywords.some((term) => haystack.includes(term)) ||
+    interestTerms.some((term) => haystack.includes(term));
+}
+
 export default function UniversitiesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -77,6 +111,8 @@ export default function UniversitiesPage() {
   const [expandedCards, setExpandedCards] = useState(() => new Set());
   const [favorites, setFavorites] = useState(() => new Set());
   const [justAdded, setJustAdded] = useState(() => new Set());
+  const [viewMode, setViewMode] = useState(initialProgram ? "general" : "personalized");
+  const [profile, setProfile] = useState(null);
 
   // Load favorites from DB if user is logged in
   useEffect(() => {
@@ -87,6 +123,13 @@ export default function UniversitiesPage() {
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.favorites) setFavorites(new Set(data.favorites)); })
+      .catch(() => {});
+
+    fetch("/api/profile", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data?.student) setProfile(data); })
       .catch(() => {});
   }, []);
 
@@ -197,16 +240,22 @@ export default function UniversitiesPage() {
       if (programFilter) {
         const normalize = (s) => s.toLowerCase().replace(/[\s-]+/g, "");
         const filterNorm = normalize(programFilter);
-        const match = u.programs?.some((p) => {
+        const match = dedupePrograms(u.programs || []).some((p) => {
           const name = p.name.toLowerCase();
           return name.includes(programFilter.toLowerCase()) || normalize(p.name).includes(filterNorm);
         });
         if (!match) return false;
       }
 
+      if (viewMode === "personalized") {
+        const student = profile?.student;
+        if (!student?.academic_level || !student?.interests) return false;
+        if (!dedupePrograms(u.programs || []).some((program) => profileMatchesProgram(program, student))) return false;
+      }
+
       return true;
     });
-  }, [universities, searchQuery, cityFilter, programFilter]);
+  }, [universities, searchQuery, cityFilter, programFilter, viewMode, profile]);
 
   // Active filter chips
   const activeFilters = [
@@ -238,6 +287,33 @@ export default function UniversitiesPage() {
               Browse {universities.length} institutions — filter by city or program.
             </p>
           </div>
+
+          <div className="inline-flex bg-white border border-gray-200 rounded-xl p-1 mb-5">
+            <button
+              type="button"
+              onClick={() => setViewMode("personalized")}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                viewMode === "personalized" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Personalized
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("general")}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                viewMode === "general" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              General
+            </button>
+          </div>
+
+          {viewMode === "personalized" && !profile?.student?.academic_level && (
+            <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+              Complete your profile to see universities suitable for your programs. You can still use General view.
+            </div>
+          )}
 
           {/* Search + Filter toggle row */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -356,14 +432,18 @@ export default function UniversitiesPage() {
               // Highlighted programs if program filter active; otherwise respect
               // the per-card expand toggle (collapsed shows the first 5).
               const isExpanded = expandedCards.has(uni.id);
-              const totalPrograms = uni.programs?.length || 0;
+              const uniquePrograms = dedupePrograms(uni.programs || []);
+              const profilePrograms = viewMode === "personalized" && profile?.student
+                ? uniquePrograms.filter((p) => profileMatchesProgram(p, profile.student))
+                : uniquePrograms;
+              const totalPrograms = profilePrograms.length || 0;
               const displayPrograms = programFilter
-                ? uni.programs?.filter((p) =>
+                ? profilePrograms?.filter((p) =>
                     p.name.toLowerCase().includes(programFilter.toLowerCase())
                   )
                 : isExpanded
-                ? uni.programs
-                : uni.programs?.slice(0, 5);
+                ? profilePrograms
+                : profilePrograms?.slice(0, 5);
 
               return (
                 <div
