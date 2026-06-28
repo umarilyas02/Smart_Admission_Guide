@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ClipboardList, Target, Megaphone, User, GraduationCap,
   Lightbulb, CheckCircle2, AlertCircle, Loader2, ChevronRight,
@@ -22,7 +23,19 @@ const SECTIONS = [
 function isSectionComplete(id, u, s) {
   if (id === "personal")  return !!(u?.name?.trim() && s?.phone);
   if (id === "academic")  return !!(s?.academic_level && s?.matric_type && s?.matric_marks != null && s?.intermediate_marks != null);
-  if (id === "test")      return !!(s?.test_type && (s.test_type === "none" || s.test_score != null));
+  if (id === "test") {
+    if (s?.has_entry_test === false) return true;
+    if (s?.has_entry_test === true) {
+      return !!(s?.test_type && s?.test_score != null && s?.test_year != null);
+    }
+
+    // Legacy fallback for older saved rows that predate has_entry_test.
+    if (s?.test_type || s?.test_score != null || s?.test_year != null) {
+      return !!(s?.test_type && s?.test_score != null && s?.test_year != null);
+    }
+
+    return false;
+  }
   if (id === "interests") return !!s?.interests?.trim();
   return false;
 }
@@ -134,12 +147,12 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
-              <a
+              <Link
                 href="/dashboard/profile-progress"
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition shrink-0"
               >
                 Complete now <ChevronRight className="w-4 h-4" />
-              </a>
+              </Link>
             </div>
 
             {/* Section checklist */}
@@ -148,7 +161,7 @@ export default function DashboardPage() {
                 const done = isSectionComplete(sec.id, userData, student);
                 const Icon = sec.icon;
                 return (
-                  <a
+                  <Link
                     key={sec.id}
                     href="/dashboard/profile-progress"
                     className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm transition ${
@@ -163,7 +176,7 @@ export default function DashboardPage() {
                       ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
                       : <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />
                     }
-                  </a>
+                  </Link>
                 );
               })}
             </div>
@@ -180,12 +193,12 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-500 mb-4">
               Fill in your academic details to unlock personalised AI recommendations.
             </p>
-            <a
+            <Link
               href="/dashboard/profile-progress"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 px-5 py-2 rounded-xl hover:bg-blue-700 transition"
             >
               Go to Profile <ChevronRight className="w-4 h-4" />
-            </a>
+            </Link>
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -196,12 +209,12 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-500 mb-4">
               Explore universities and check your admission chances based on your marks.
             </p>
-            <a
+            <Link
               href="/universities"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 px-5 py-2 rounded-xl hover:bg-blue-700 transition"
             >
               Explore Now <ChevronRight className="w-4 h-4" />
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -211,9 +224,9 @@ export default function DashboardPage() {
             <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
               <Megaphone className="w-4 h-4 text-blue-600" /> Notifications
             </h3>
-            <a href="/dashboard/notifications" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">
+            <Link href="/dashboard/notifications" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">
               View All →
-            </a>
+            </Link>
           </div>
           <div className="space-y-3">
             <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-xl">
