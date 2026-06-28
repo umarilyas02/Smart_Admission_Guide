@@ -32,6 +32,10 @@ export default function Navbar() {
     } catch (error) {
       console.error('Logout error:', error);
     }
+    try {
+      localStorage.removeItem("auth_token");
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
     setIsLoggedIn(false);
     router.push("/auth");
   };

@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { queryMany } from '@/lib/db';
-
-function getUserId(req) {
-  const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
-  return verifyToken(token)?.userId || null;
-}
+import { getAuthenticatedUserId, unauthorizedResponse } from '@/lib/serverAuth';
 
 export async function GET(req) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   const notifications = await queryMany(
     `SELECT id, title, message, type, read, created_at

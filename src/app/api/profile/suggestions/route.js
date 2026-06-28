@@ -1,16 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
+import { requireAuthenticatedUser } from "@/lib/serverAuth";
 
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
 export async function POST(req) {
-  const auth = req.headers.get("authorization") || "";
-  const token = auth.replace("Bearer ", "").trim();
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const decoded = verifyToken(token);
-  if (!decoded?.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { response } = requireAuthenticatedUser(req);
+  if (response) return response;
 
   const { academic_level, matric_marks, intermediate_marks, interests } = await req.json();
 

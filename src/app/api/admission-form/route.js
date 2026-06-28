@@ -1,25 +1,11 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { query, queryOne, queryMany } from '@/lib/db';
 import { validateAdmissionForm } from '@/lib/admission-form-validation';
-
-function getUserId(req) {
-  const auth = req.headers.get('authorization') || '';
-  const token = auth.replace('Bearer ', '').trim();
-  if (!token) {
-    console.log('No auth header provided');
-    return null;
-  }
-  const decoded = verifyToken(token);
-  if (!decoded) {
-    console.log('Token verification failed for token:', token.substring(0, 20) + '...');
-  }
-  return decoded?.userId || null;
-}
+import { getAuthenticatedUserId, unauthorizedResponse } from '@/lib/serverAuth';
 
 export async function GET(req) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   try {
     const user = await queryOne('SELECT id, name, email FROM users WHERE id=$1', [userId]);
@@ -54,8 +40,8 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   try {
     const formData = await req.json();

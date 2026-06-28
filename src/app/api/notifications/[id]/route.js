@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { query } from '@/lib/db';
-
-function getUserId(req) {
-  const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
-  return verifyToken(token)?.userId || null;
-}
+import { getAuthenticatedUserId, unauthorizedResponse } from '@/lib/serverAuth';
 
 export async function PATCH(req, { params }) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   // Next.js 15+ makes route params async — must be awaited before use.
   const { id } = await params;
@@ -22,8 +17,8 @@ export async function PATCH(req, { params }) {
 }
 
 export async function DELETE(req, { params }) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   const { id } = await params;
   await query(

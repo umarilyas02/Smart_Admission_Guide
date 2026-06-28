@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { query } from '@/lib/db';
-
-function getUserId(req) {
-  const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
-  return verifyToken(token)?.userId || null;
-}
+import { getAuthenticatedUserId, unauthorizedResponse } from '@/lib/serverAuth';
 
 export async function PATCH(req) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   await query(
     'UPDATE notifications SET read = TRUE WHERE user_id = $1 AND read = FALSE',

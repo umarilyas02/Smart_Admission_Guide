@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { queryOne, query } from '@/lib/db';
+import { getAuthenticatedUserId, unauthorizedResponse } from '@/lib/serverAuth';
 import { validate } from '@/lib/validators';
-
-function getUserId(req) {
-  const auth = req.headers.get('authorization') || '';
-  const token = auth.replace('Bearer ', '').trim();
-  if (!token) return null;
-  const decoded = verifyToken(token);
-  return decoded?.userId || null;
-}
 
 const INTEREST_MIN_WORDS = 20;
 const INTEREST_MAX_WORDS = 50;
@@ -116,8 +108,8 @@ function validateProfileInput(body) {
 }
 
 export async function GET(req) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   const user = await queryOne('SELECT id, name, email FROM users WHERE id=$1', [userId]);
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -131,8 +123,8 @@ export async function GET(req) {
 }
 
 export async function PUT(req) {
-  const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   const body = await req.json();
   const { name, phone, academic_level, matric_type, matric_marks, intermediate_marks, has_entry_test, test_type, test_score, test_year, test_date, interests } = body;

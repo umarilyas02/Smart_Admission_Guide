@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { queryOne } from '@/lib/db';
-
-const ADMIN_EMAIL = 'smartadmissionguide@gmail.com';
+import { requireAdminUser } from '@/lib/serverAuth';
 
 export async function GET(req) {
-  const auth = req.headers.get('authorization') || '';
-  const token = auth.replace('Bearer ', '').trim();
-  const decoded = verifyToken(token);
-
-  if (!decoded || decoded.email !== ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const { response } = requireAdminUser(req);
+  if (response) return response;
 
   try {
     const [students, universities, programs, chatbotQueries] = await Promise.all([

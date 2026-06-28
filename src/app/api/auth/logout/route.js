@@ -1,5 +1,7 @@
+import { NextResponse } from 'next/server';
+
 export async function POST(request) {
-  const response = Response.json(
+  const response = NextResponse.json(
     { message: 'Logged out successfully' },
     { status: 200 }
   );

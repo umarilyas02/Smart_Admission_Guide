@@ -1,17 +1,11 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
-
-function getUser(request) {
-  const auth = request.headers.get('Authorization');
-  if (!auth?.startsWith('Bearer ')) return null;
-  return verifyToken(auth.slice(7));
-}
+import { requireAuthenticatedUser } from '@/lib/serverAuth';
 
 // POST /api/universities/:id/favorite — toggle favorite
 export async function POST(request, { params }) {
-  const user = getUser(request);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { user, response } = requireAuthenticatedUser(request);
+  if (response) return response;
 
   const { id } = await params;
   const universityId = parseInt(id, 10);

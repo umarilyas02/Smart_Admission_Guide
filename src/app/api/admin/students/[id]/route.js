@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { query } from '@/lib/db';
-
-const ADMIN_EMAIL = 'smartadmissionguide@gmail.com';
-
-function isAdmin(req) {
-  const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
-  const decoded = verifyToken(token);
-  return decoded?.email === ADMIN_EMAIL;
-}
+import { requireAdminUser } from '@/lib/serverAuth';
 
 export async function PUT(req, { params }) {
-  if (!isAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const { response } = requireAdminUser(req);
+  if (response) return response;
   const { id } = await params;
   const { is_blocked } = await req.json();
 
@@ -28,7 +21,8 @@ export async function PUT(req, { params }) {
 }
 
 export async function DELETE(req, { params }) {
-  if (!isAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const { response } = requireAdminUser(req);
+  if (response) return response;
   const { id } = await params;
 
   try {

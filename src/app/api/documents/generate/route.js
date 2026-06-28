@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { verifyToken } from '@/lib/auth';
 import { query, queryOne } from '@/lib/db';
 import { validateAdmissionForm } from '@/lib/admission-form-validation';
+import { getAuthenticatedUserId, unauthorizedResponse } from '@/lib/serverAuth';
 import {
   generateAdmissionFormPDF,
   generateMotivationLetterPDF,
@@ -10,14 +10,6 @@ import {
 } from '@/lib/pdf-generator';
 
 const anthropic = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
-
-function getUserId(req) {
-  const auth = req.headers.get('authorization') || '';
-  const token = auth.replace('Bearer ', '').trim();
-  if (!token) return null;
-  const decoded = verifyToken(token);
-  return decoded?.userId || null;
-}
 
 function pct(obtained, total) {
   if (!obtained || !total) return null;
@@ -67,10 +59,8 @@ Write only the letter body paragraphs:`;
 }
 
 export async function POST(req) {
-  const userId = getUserId(req);
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return unauthorizedResponse();
 
   try {
     const body = await req.json();

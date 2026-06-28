@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { comparePassword, generateToken } from '@/lib/auth';
 import { validate } from '@/lib/validators';
@@ -8,7 +9,7 @@ export async function POST(request) {
 
     // Validation
     if (!email || !password) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
       );
@@ -17,7 +18,7 @@ export async function POST(request) {
     const normalizedEmail = email.trim().toLowerCase();
     const emailError = validate('email', normalizedEmail, { required: true });
     if (emailError) {
-      return Response.json({ error: emailError }, { status: 400 });
+      return NextResponse.json({ error: emailError }, { status: 400 });
     }
 
     // Find user by email
@@ -27,7 +28,7 @@ export async function POST(request) {
     );
 
     if (rows.length === 0) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
@@ -36,7 +37,7 @@ export async function POST(request) {
     const user = rows[0];
 
     if (user.is_blocked) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Your account has been suspended. Please contact support.' },
         { status: 403 }
       );
@@ -46,7 +47,7 @@ export async function POST(request) {
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
@@ -55,7 +56,7 @@ export async function POST(request) {
     // Generate token
     const token = generateToken(user.id, user.email);
 
-    const response = Response.json(
+    const response = NextResponse.json(
       {
         message: 'Login successful',
         user: {
@@ -63,6 +64,7 @@ export async function POST(request) {
           name: user.name,
           email: user.email,
         },
+        token,
       },
       { status: 200 }
     );
@@ -78,7 +80,7 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error('Login error:', error);
-    return Response.json(
+    return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );

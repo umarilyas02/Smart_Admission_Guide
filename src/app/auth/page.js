@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ValidatedInput from "@/components/ValidatedInput";
 import { validate } from "@/lib/validators";
 
 export default function AuthPage() {
+  const router = useRouter();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({
     name: "",
@@ -19,41 +21,20 @@ export default function AuthPage() {
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
-  useEffect(() => {
-    if (!googleClientId) return;
-
-    const initializeGsi = () => {
-      if (!window.google || !googleButtonRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleGoogleCredential,
-      });
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "outline",
-        size: "large",
-        width: "100%",
-      });
-    };
-
-    if (window.google?.accounts?.id) {
-      initializeGsi();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = initializeGsi;
-    document.head.appendChild(script);
-
-    return () => {
-      script.onload = null;
-    };
-  }, [googleClientId]);
-
   const onChange = (key) => (e) => {
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  };
+
+  const completeLogin = (data) => {
+    if (data?.token) {
+      localStorage.setItem("auth_token", data.token);
+      window.dispatchEvent(new Event("storage"));
+    }
+
+    setMessage({ type: "success", text: data?.message || "Login successful!" });
+    const isAdmin = data?.user?.email === "smartadmissionguide@gmail.com";
+    router.replace(isAdmin ? "/admin" : "/");
+    router.refresh();
   };
 
   const handleSubmit = async (e) => {
@@ -83,11 +64,7 @@ export default function AuthPage() {
       if (!res.ok) throw new Error(data.error || "Request failed");
 
       if (mode === "login") {
-        setMessage({ type: "success", text: data.message || "Login successful!" });
-        const isAdmin = data.user?.email === "smartadmissionguide@gmail.com";
-        setTimeout(() => {
-          window.location.href = isAdmin ? "/admin" : "/";
-        }, 1000);
+        completeLogin(data);
       } else {
         setMessage({ type: "success", text: data.message || `Success: ${mode}` });
       }
@@ -98,7 +75,7 @@ export default function AuthPage() {
     }
   };
 
-  const handleGoogleCredential = async (response) => {
+  const handleGoogleCredential = useEffectEvent(async (response) => {
     if (!response?.credential) return;
     setLoading(true);
     setMessage(null);
@@ -112,17 +89,47 @@ export default function AuthPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Google login failed");
 
-      setMessage({ type: "success", text: data.message || "Login successful!" });
-      const isAdmin = data.user?.email === "smartadmissionguide@gmail.com";
-      setTimeout(() => {
-        window.location.href = isAdmin ? "/admin" : "/";
-      }, 800);
+      completeLogin(data);
     } catch (err) {
       setMessage({ type: "error", text: err.message });
     } finally {
       setLoading(false);
     }
-  };
+  });
+
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    const initializeGsi = () => {
+      if (!window.google || !googleButtonRef.current) return;
+      const width = Math.max(220, Math.floor(googleButtonRef.current.offsetWidth || 320));
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width,
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      initializeGsi();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = initializeGsi;
+    document.head.appendChild(script);
+
+    return () => {
+      script.onload = null;
+    };
+  }, [googleClientId]);
 
   const handleLogout = async () => {
     try {
@@ -244,7 +251,7 @@ export default function AuthPage() {
             </div>
             <div className="mt-3">
               {googleClientId ? (
-                <div ref={googleButtonRef} className="flex justify-center" />
+                <div ref={googleButtonRef} className="mx-auto w-full max-w-sm" />
               ) : (
                 <div className="text-center text-xs text-gray-500">
                   Google sign-in is not configured.

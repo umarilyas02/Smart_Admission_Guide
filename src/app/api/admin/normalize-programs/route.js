@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { verifyToken } from '@/lib/auth';
 import { query, queryMany } from '@/lib/db';
-
-const ADMIN_EMAIL = 'smartadmissionguide@gmail.com';
-
-function isAdmin(req) {
-  const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
-  const decoded = verifyToken(token);
-  return decoded?.email === ADMIN_EMAIL;
-}
+import { requireAdminUser } from '@/lib/serverAuth';
 
 const claude = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
@@ -56,7 +48,8 @@ Required output (JSON object):`,
 }
 
 export async function POST(req) {
-  if (!isAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const { response } = requireAdminUser(req);
+  if (response) return response;
 
   try {
     // Fetch all distinct program names currently in the DB

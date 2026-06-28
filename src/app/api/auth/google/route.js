@@ -1,22 +1,31 @@
 import crypto from 'crypto';
+import { NextResponse } from 'next/server';
 import { OAuth2Client } from 'google-auth-library';
 import pool from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 
 const clientId = process.env.GOOGLE_CLIENT_ID;
 const oauthClient = clientId ? new OAuth2Client(clientId) : null;
+const jwtSecret = process.env.JWT_SECRET;
+
+export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
     const { credential } = await request.json();
 
     if (!credential) {
-      return Response.json({ error: 'Missing Google credential' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing Google credential' }, { status: 400 });
     }
 
     if (!oauthClient) {
       console.error('GOOGLE_CLIENT_ID is not configured');
-      return Response.json({ error: 'Google login is not configured' }, { status: 500 });
+      return NextResponse.json({ error: 'Google login is not configured' }, { status: 500 });
+    }
+
+    if (!jwtSecret) {
+      console.error('JWT_SECRET is not configured');
+      return NextResponse.json({ error: 'Server auth is not configured' }, { status: 500 });
     }
 
     // Verify the Google ID token
@@ -29,21 +38,31 @@ export async function POST(request) {
       payload = ticket.getPayload();
     } catch (err) {
       console.error('Failed to verify Google ID token:', err);
-      return Response.json({ error: 'Invalid Google token' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid Google token' }, { status: 401 });
     }
 
-    const email = payload?.email;
+    const email = payload?.email?.trim().toLowerCase();
     const name = payload?.name || email?.split('@')[0] || 'Google User';
 
     if (!email) {
-      return Response.json({ error: 'Google account does not provide an email' }, { status: 400 });
+      return NextResponse.json({ error: 'Google account does not provide an email' }, { status: 400 });
+    }
+
+    if (payload?.email_verified === false) {
+      return NextResponse.json({ error: 'Google account email is not verified' }, { status: 400 });
     }
 
     // Find or create user in local DB
-    const { rows } = await pool.query(
-      'SELECT id, name, email FROM users WHERE email = $1',
-      [email]
-    );
+    let rows;
+    try {
+      ({ rows } = await pool.query(
+        'SELECT id, name, email FROM users WHERE email = $1',
+        [email]
+      ));
+    } catch (dbError) {
+      console.error('Failed to load Google user from database:', dbError);
+      return NextResponse.json({ error: 'Database query failed during Google login' }, { status: 500 });
+    }
 
     let user = rows[0];
 
@@ -51,20 +70,40 @@ export async function POST(request) {
       // Create a random password to satisfy NOT NULL constraint
       const randomPassword = crypto.randomBytes(16).toString('hex');
       const hashedPassword = await hashPassword(randomPassword);
-      const { rows: inserted } = await pool.query(
-        'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
-        [name, email, hashedPassword]
-      );
-      user = inserted[0];
+      try {
+        const { rows: inserted } = await pool.query(
+          'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
+          [name, email, hashedPassword]
+        );
+        user = inserted[0];
+      } catch (insertError) {
+        if (insertError?.code === '23505') {
+          const { rows: existing } = await pool.query(
+            'SELECT id, name, email FROM users WHERE email = $1',
+            [email]
+          );
+          user = existing[0];
+        } else {
+          console.error('Failed to create Google user:', insertError);
+          return NextResponse.json({ error: 'Database insert failed during Google login' }, { status: 500 });
+        }
+      }
     }
 
     // Issue our JWT for downstream usage
-    const token = generateToken(user.id, user.email);
+    let token;
+    try {
+      token = generateToken(user.id, user.email);
+    } catch (tokenError) {
+      console.error('Failed to sign auth token for Google login:', tokenError);
+      return NextResponse.json({ error: 'Token signing failed during Google login' }, { status: 500 });
+    }
 
-    const response = Response.json(
+    const response = NextResponse.json(
       {
         message: 'Login successful',
         user,
+        token,
       },
       { status: 200 }
     );
@@ -80,7 +119,7 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error('Google login error:', error);
-    return Response.json(
+    return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );

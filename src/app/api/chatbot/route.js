@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import Anthropic from '@anthropic-ai/sdk';
 import { query, queryMany, queryOne } from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
+import { getAuthenticatedUser } from '@/lib/serverAuth';
 
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 
@@ -253,35 +252,12 @@ export async function POST(req) {
       return NextResponse.json({ error: 'messages array is required' }, { status: 400 });
     }
 
-    // Get token from cookies or Authorization header
-    let token = null;
-    let userId = null;
-
-    // Try to get from cookie first
-    try {
-      const cookieStore = await cookies();
-      token = cookieStore.get('auth_token')?.value;
-    } catch (err) {
-      console.error('Error reading cookies:', err);
-    }
-
-    // Fall back to Authorization header
-    if (!token) {
-      const authHeader = req.headers.get('authorization') || '';
-      token = authHeader.replace('Bearer ', '').trim();
-    }
-
-    // Verify token and extract userId
-    if (!token) {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
       return NextResponse.json({ error: 'Authentication required. Please log in to use the chatbot.' }, { status: 401 });
     }
 
-    const decoded = verifyToken(token);
-    if (!decoded?.userId) {
-      return NextResponse.json({ error: 'Invalid or expired token. Please log in again.' }, { status: 401 });
-    }
-
-    userId = decoded.userId;
+    const userId = user.userId;
 
     // Check rate limit
     const rateLimitCheck = await checkRateLimit(userId);
