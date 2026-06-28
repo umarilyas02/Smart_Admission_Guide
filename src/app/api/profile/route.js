@@ -111,65 +111,80 @@ export async function GET(req) {
   const userId = getAuthenticatedUserId(req);
   if (!userId) return unauthorizedResponse();
 
-  const user = await queryOne('SELECT id, name, email FROM users WHERE id=$1', [userId]);
-  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  try {
+    const user = await queryOne('SELECT id, name, email FROM users WHERE id=$1', [userId]);
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-  const [student, savedRow] = await Promise.all([
-    queryOne('SELECT * FROM students WHERE user_id=$1', [userId]),
-    queryOne('SELECT COUNT(*)::int AS count FROM user_university_favorites WHERE user_id=$1', [userId]),
-  ]);
+    const student = await queryOne('SELECT * FROM students WHERE user_id=$1', [userId]);
 
-  return NextResponse.json({ user, student: student || null, savedCount: savedRow?.count ?? 0 });
+    let savedCount = 0;
+    try {
+      const savedRow = await queryOne('SELECT COUNT(*)::int AS count FROM user_university_favorites WHERE user_id=$1', [userId]);
+      savedCount = savedRow?.count ?? 0;
+    } catch {
+      // table may not exist yet; non-critical
+    }
+
+    return NextResponse.json({ user, student: student || null, savedCount });
+  } catch (error) {
+    console.error('GET /api/profile error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function PUT(req) {
   const userId = getAuthenticatedUserId(req);
   if (!userId) return unauthorizedResponse();
 
-  const body = await req.json();
-  const { name, phone, academic_level, matric_type, matric_marks, intermediate_marks, has_entry_test, test_type, test_score, test_year, test_date, interests } = body;
-  const validation = validateProfileInput(body);
-  if (!validation.valid) {
-    return NextResponse.json({ error: validation.errors[0], errors: validation.errors }, { status: 400 });
+  try {
+    const body = await req.json();
+    const { name, phone, academic_level, matric_type, matric_marks, intermediate_marks, has_entry_test, test_type, test_score, test_year, test_date, interests } = body;
+    const validation = validateProfileInput(body);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.errors[0], errors: validation.errors }, { status: 400 });
+    }
+
+    if (name?.trim()) {
+      await query('UPDATE users SET name=$1, updated_at=NOW() WHERE id=$2', [name.trim(), userId]);
+    }
+
+    await query(
+      `INSERT INTO students (user_id, phone, academic_level, matric_type, matric_marks, intermediate_marks, has_entry_test, test_type, test_score, test_year, test_date, interests, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         phone = $2,
+         academic_level = $3,
+         matric_type = $4,
+         matric_marks = $5,
+         intermediate_marks = $6,
+         has_entry_test = $7,
+         test_type = $8,
+         test_score = $9,
+         test_year = $10,
+         test_date = $11,
+         interests = $12,
+         updated_at = NOW()`,
+      [
+        userId,
+        phone || null,
+        academic_level || null,
+        matric_type || null,
+        matric_marks ? parseFloat(matric_marks) : null,
+        intermediate_marks ? parseFloat(intermediate_marks) : null,
+        validation.attemptedTest,
+        validation.attemptedTest ? test_type || null : null,
+        validation.attemptedTest && test_score ? parseFloat(test_score) : null,
+        validation.attemptedTest && test_year ? parseInt(test_year, 10) : null,
+        validation.attemptedTest && test_date ? test_date : null,
+        interests || null,
+      ]
+    );
+
+    return NextResponse.json({ message: 'Profile updated successfully' });
+  } catch (error) {
+    console.error('PUT /api/profile error:', error);
+    return NextResponse.json({ error: 'Failed to update profile. Please try again.' }, { status: 500 });
   }
-
-  if (name?.trim()) {
-    await query('UPDATE users SET name=$1, updated_at=NOW() WHERE id=$2', [name.trim(), userId]);
-  }
-
-  await query(
-    `INSERT INTO students (user_id, phone, academic_level, matric_type, matric_marks, intermediate_marks, has_entry_test, test_type, test_score, test_year, test_date, interests, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW())
-     ON CONFLICT (user_id) DO UPDATE SET
-       phone = $2,
-       academic_level = $3,
-       matric_type = $4,
-       matric_marks = $5,
-       intermediate_marks = $6,
-       has_entry_test = $7,
-       test_type = $8,
-       test_score = $9,
-       test_year = $10,
-       test_date = $11,
-       interests = $12,
-       updated_at = NOW()`,
-    [
-      userId,
-      phone || null,
-      academic_level || null,
-      matric_type || null,
-      matric_marks ? parseFloat(matric_marks) : null,
-      intermediate_marks ? parseFloat(intermediate_marks) : null,
-      validation.attemptedTest,
-      validation.attemptedTest ? test_type || null : null,
-      validation.attemptedTest && test_score ? parseFloat(test_score) : null,
-      validation.attemptedTest && test_year ? parseInt(test_year, 10) : null,
-      validation.attemptedTest && test_date ? test_date : null,
-      interests || null,
-    ]
-  );
-
-  return NextResponse.json({ message: 'Profile updated successfully' });
 }
 
 export const runtime = 'nodejs';
