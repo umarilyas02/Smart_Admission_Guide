@@ -30,6 +30,31 @@ const TESTS_FOR_LEVEL = {
 };
 const ACADEMIC_LEVELS = new Set(['fsc_medical', 'fsc_engineering', 'ics', 'icom', 'fa']);
 const MATRIC_TYPES = new Set(['medical_science', 'computer_science', 'arts', 'commerce', 'engineering', 'general']);
+let studentProfileSchemaReady;
+
+async function ensureStudentProfileSchema() {
+  if (!studentProfileSchemaReady) {
+    studentProfileSchemaReady = (async () => {
+      const migrations = [
+        `ALTER TABLE students ADD COLUMN IF NOT EXISTS academic_level VARCHAR(50)`,
+        `ALTER TABLE students ADD COLUMN IF NOT EXISTS matric_type VARCHAR(50)`,
+        `ALTER TABLE students ADD COLUMN IF NOT EXISTS has_entry_test BOOLEAN DEFAULT FALSE`,
+        `ALTER TABLE students ADD COLUMN IF NOT EXISTS test_type VARCHAR(50)`,
+        `ALTER TABLE students ADD COLUMN IF NOT EXISTS test_year INT`,
+        `ALTER TABLE students ADD COLUMN IF NOT EXISTS test_date DATE`,
+      ];
+
+      for (const sql of migrations) {
+        await query(sql);
+      }
+    })().catch((error) => {
+      studentProfileSchemaReady = null;
+      throw error;
+    });
+  }
+
+  return studentProfileSchemaReady;
+}
 
 function countWords(value) {
   return String(value || '').trim().split(/\s+/).filter(Boolean).length;
@@ -137,6 +162,8 @@ export async function PUT(req) {
   if (!userId) return unauthorizedResponse();
 
   try {
+    await ensureStudentProfileSchema();
+
     const body = await req.json();
     const { name, phone, academic_level, matric_type, matric_marks, intermediate_marks, has_entry_test, test_type, test_score, test_year, test_date, interests } = body;
     const validation = validateProfileInput(body);
@@ -148,37 +175,53 @@ export async function PUT(req) {
       await query('UPDATE users SET name=$1, updated_at=NOW() WHERE id=$2', [name.trim(), userId]);
     }
 
-    await query(
-      `INSERT INTO students (user_id, phone, academic_level, matric_type, matric_marks, intermediate_marks, has_entry_test, test_type, test_score, test_year, test_date, interests, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW())
-       ON CONFLICT (user_id) DO UPDATE SET
-         phone = $2,
-         academic_level = $3,
-         matric_type = $4,
-         matric_marks = $5,
-         intermediate_marks = $6,
-         has_entry_test = $7,
-         test_type = $8,
-         test_score = $9,
-         test_year = $10,
-         test_date = $11,
-         interests = $12,
-         updated_at = NOW()`,
-      [
-        userId,
-        phone || null,
-        academic_level || null,
-        matric_type || null,
-        matric_marks ? parseFloat(matric_marks) : null,
-        intermediate_marks ? parseFloat(intermediate_marks) : null,
-        validation.attemptedTest,
-        validation.attemptedTest ? test_type || null : null,
-        validation.attemptedTest && test_score ? parseFloat(test_score) : null,
-        validation.attemptedTest && test_year ? parseInt(test_year, 10) : null,
-        validation.attemptedTest && test_date ? test_date : null,
-        interests || null,
-      ]
+    const studentValues = [
+      phone || null,
+      academic_level || null,
+      matric_type || null,
+      matric_marks ? parseFloat(matric_marks) : null,
+      intermediate_marks ? parseFloat(intermediate_marks) : null,
+      validation.attemptedTest,
+      validation.attemptedTest ? test_type || null : null,
+      validation.attemptedTest && test_score ? parseFloat(test_score) : null,
+      validation.attemptedTest && test_year ? parseInt(test_year, 10) : null,
+      validation.attemptedTest && test_date ? test_date : null,
+      interests || null,
+      userId,
+    ];
+
+    const updateResult = await query(
+      `UPDATE students
+          SET phone = $1,
+              academic_level = $2,
+              matric_type = $3,
+              matric_marks = $4,
+              intermediate_marks = $5,
+              has_entry_test = $6,
+              test_type = $7,
+              test_score = $8,
+              test_year = $9,
+              test_date = $10,
+              interests = $11,
+              updated_at = NOW()
+        WHERE user_id = $12`,
+      studentValues
     );
+
+    if (updateResult.rowCount === 0) {
+      await query(
+        `INSERT INTO students (
+            phone, academic_level, matric_type, matric_marks, intermediate_marks,
+            has_entry_test, test_type, test_score, test_year, test_date, interests,
+            user_id, created_at, updated_at
+         ) VALUES (
+            $1,$2,$3,$4,$5,
+            $6,$7,$8,$9,$10,$11,
+            $12,NOW(),NOW()
+         )`,
+        studentValues
+      );
+    }
 
     return NextResponse.json({ message: 'Profile updated successfully' });
   } catch (error) {

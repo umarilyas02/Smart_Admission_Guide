@@ -300,16 +300,20 @@ export default function ProfileProgressPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to save. Please try again.");
+      }
       setSaved(true);
+      setApiError("");
       if (calcCompletion(form) === 100) {
         // profile just became complete — fetch suggestions instantly, stay on page
         fetchSuggestions(form);
       } else {
         setTimeout(() => router.push("/"), 1000);
       }
-    } catch {
-      setApiError("Failed to save. Please try again.");
+    } catch (error) {
+      setApiError(error.message || "Failed to save. Please try again.");
     } finally {
       setSaving(false);
     }
