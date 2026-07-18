@@ -5,6 +5,7 @@ import { sendCustomTestEmail, sendReminderDigest } from '@/lib/email';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_RECIPIENTS = 50;
+const MAX_EVENT_RECIPIENTS = 200;
 
 export async function GET(req) {
   const { response } = requireAdminUser(req);
@@ -53,7 +54,11 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { type, recipientMode, emails, userLimit, subject, message, days } = body;
+    const { type, recipientMode, emails, userLimit, subject, message, days, eventIds } = body;
+
+    const eventIdList = Array.isArray(eventIds)
+      ? eventIds.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id))
+      : [];
 
     let recipients = [];
     if (recipientMode === 'users') {
@@ -61,6 +66,26 @@ export async function POST(req) {
       const users = await queryMany('SELECT name, email FROM users ORDER BY id LIMIT $1', [limit]);
       if (users.length === 0) {
         return NextResponse.json({ error: 'No users found in the database' }, { status: 400 });
+      }
+      recipients = users.map((u) => ({ email: u.email, name: u.name }));
+    } else if (recipientMode === 'event-users') {
+      if (eventIdList.length === 0) {
+        return NextResponse.json({ error: 'Select at least one event' }, { status: 400 });
+      }
+      const users = await queryMany(
+        `SELECT DISTINCT us.id, us.name, us.email
+         FROM university_events e
+         JOIN user_university_favorites f ON f.university_id = e.university_id
+         JOIN users us ON us.id = f.user_id
+         WHERE e.id = ANY($1::int[])
+         LIMIT $2`,
+        [eventIdList, MAX_EVENT_RECIPIENTS]
+      );
+      if (users.length === 0) {
+        return NextResponse.json(
+          { error: 'No users have favorited the universities for the selected events' },
+          { status: 400 }
+        );
       }
       recipients = users.map((u) => ({ email: u.email, name: u.name }));
     } else {
@@ -84,23 +109,38 @@ export async function POST(req) {
     const results = [];
 
     if (type === 'deadline') {
-      const windowDays = Math.max(1, Math.min(parseInt(days, 10) || 30, 365));
-      const events = await queryMany(
-        `SELECT e.id, e.event_type, e.start_date, e.end_date, e.status, e.details,
-                u.name AS university_name
-         FROM university_events e
-         JOIN universities u ON u.id = e.university_id
-         WHERE e.start_date BETWEEN CURRENT_DATE AND CURRENT_DATE + ($1 || ' days')::INTERVAL
-         ORDER BY e.start_date ASC
-         LIMIT 10`,
-        [windowDays]
-      );
-
-      if (events.length === 0) {
-        return NextResponse.json(
-          { error: `No upcoming events in the next ${windowDays} days — add a university event first, or increase the days window` },
-          { status: 400 }
+      let events;
+      if (eventIdList.length > 0) {
+        events = await queryMany(
+          `SELECT e.id, e.event_type, e.start_date, e.end_date, e.status, e.details,
+                  u.name AS university_name
+           FROM university_events e
+           JOIN universities u ON u.id = e.university_id
+           WHERE e.id = ANY($1::int[])
+           ORDER BY e.start_date ASC`,
+          [eventIdList]
         );
+        if (events.length === 0) {
+          return NextResponse.json({ error: 'Selected events could not be found' }, { status: 400 });
+        }
+      } else {
+        const windowDays = Math.max(1, Math.min(parseInt(days, 10) || 30, 365));
+        events = await queryMany(
+          `SELECT e.id, e.event_type, e.start_date, e.end_date, e.status, e.details,
+                  u.name AS university_name
+           FROM university_events e
+           JOIN universities u ON u.id = e.university_id
+           WHERE e.start_date BETWEEN CURRENT_DATE AND CURRENT_DATE + ($1 || ' days')::INTERVAL
+           ORDER BY e.start_date ASC
+           LIMIT 10`,
+          [windowDays]
+        );
+        if (events.length === 0) {
+          return NextResponse.json(
+            { error: `No upcoming events in the next ${windowDays} days — add a university event first, or increase the days window` },
+            { status: 400 }
+          );
+        }
       }
 
       for (const r of recipients) {

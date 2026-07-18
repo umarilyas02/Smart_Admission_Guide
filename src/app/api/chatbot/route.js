@@ -134,12 +134,35 @@ const ELIGIBLE_PROGRAMS = {
   icom:            "Business Administration (BBA/MBA), Accounting & Finance, Economics, Commerce, Banking & Finance, Marketing, Human Resource Management, Supply Chain Management, Public Administration",
 };
 
-function buildSystemPrompt(dbContext, academicLevel) {
+function buildProfileNote(student) {
+  if (!student) return "";
+
+  const academicLevel = student.academic_level;
+  const facts = [];
+
+  if (academicLevel && ELIGIBLE_PROGRAMS[academicLevel]) {
+    facts.push(`Completed academic level: ${academicLevel.toUpperCase().replace(/_/g, " ")}`);
+  }
+  if (student.interests) facts.push(`Stated interests/goals: ${student.interests}`);
+  if (student.matric_marks) facts.push(`Matric marks: ${student.matric_marks}%`);
+  if (student.intermediate_marks) facts.push(`Intermediate marks: ${student.intermediate_marks}%`);
+  if (student.has_entry_test && student.test_type) {
+    facts.push(`Entry test: ${student.test_type.toUpperCase()}${student.test_score ? `, score ${student.test_score}` : ""}`);
+  }
+
+  if (!facts.length) return "";
+
+  const eligibilityNote = academicLevel && ELIGIBLE_PROGRAMS[academicLevel]
+    ? ` When suggesting programs or departments, ONLY recommend programs they are eligible for: ${ELIGIBLE_PROGRAMS[academicLevel]}. Do NOT suggest programs outside this list.`
+    : "";
+
+  return `\n\nSTUDENT PROFILE (already on file — DO NOT ask the student to re-confirm any of this, use it directly):\n${facts.map((f) => `- ${f}`).join("\n")}\n${eligibilityNote}\nOnly ask the student for details that are NOT listed above (e.g. location preference, budget, university type) if you need them to narrow down a recommendation.`;
+}
+
+function buildSystemPrompt(dbContext, student) {
   const base = `You are SAG AI — the intelligent assistant for Smart Admission Guide (SAG), a platform helping Pakistani students ONLY with Pakistani university admissions.`;
 
-  const levelNote = academicLevel && ELIGIBLE_PROGRAMS[academicLevel]
-    ? `\n\nSTUDENT CONTEXT: This student completed ${academicLevel.toUpperCase().replace(/_/g, " ")}. When suggesting programs or departments, ONLY recommend programs they are eligible for: ${ELIGIBLE_PROGRAMS[academicLevel]}. Do NOT suggest programs outside this list.`
-    : "";
+  const levelNote = buildProfileNote(student);
 
   if (!dbContext) {
     return `${base}${levelNote}
@@ -222,10 +245,8 @@ async function fetchWebContext(userQuery) {
 }
 
 // System prompt for the web-based response (uses general knowledge + any DDG context)
-function buildWebSystemPrompt(webContext, academicLevel) {
-  const levelNote = academicLevel && ELIGIBLE_PROGRAMS[academicLevel]
-    ? `\n\nThe student completed ${academicLevel.toUpperCase().replace(/_/g, ' ')}. Prioritize programs they are eligible for: ${ELIGIBLE_PROGRAMS[academicLevel]}.`
-    : '';
+function buildWebSystemPrompt(webContext, student) {
+  const levelNote = buildProfileNote(student);
 
   const webSection = webContext
     ? `\n\n=== WEB SEARCH RESULTS ===\n${webContext}\n=== END ===\n\nIncorporate the above web results where relevant in your answer.`
@@ -297,15 +318,15 @@ export async function POST(req) {
 
     const relevant = isAdmissionRelated(userText);
 
-    // Fetch student's academic level for level-aware recommendations
-    let academicLevel = null;
+    // Fetch student's saved profile so the assistant doesn't re-ask for known info
+    let student = null;
     if (userId) {
       try {
-        const studentRow = await queryOne(
-          `SELECT academic_level FROM students WHERE user_id = $1`,
+        student = await queryOne(
+          `SELECT academic_level, interests, matric_marks, intermediate_marks, has_entry_test, test_type, test_score
+           FROM students WHERE user_id = $1`,
           [userId]
         );
-        academicLevel = studentRow?.academic_level || null;
       } catch { /* non-fatal */ }
     }
 
@@ -322,8 +343,8 @@ export async function POST(req) {
       relevant ? fetchWebContext(userText) : Promise.resolve(null),
     ]);
 
-    const dbSystemPrompt = buildSystemPrompt(dbContext, academicLevel);
-    const webSystemPrompt = buildWebSystemPrompt(webContext, academicLevel);
+    const dbSystemPrompt = buildSystemPrompt(dbContext, student);
+    const webSystemPrompt = buildWebSystemPrompt(webContext, student);
 
     // Run both Claude calls in parallel — DB-only and web/general-knowledge
     const [dbResult, webResult] = await Promise.allSettled([

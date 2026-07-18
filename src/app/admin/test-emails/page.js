@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Send, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Mail, Send, CheckCircle2, XCircle, Clock, CalendarDays, Users } from "lucide-react";
 import { toast } from "sonner";
 import AdminLayout from "@/components/AdminLayout";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -15,6 +15,19 @@ function formatDateTime(value) {
     day: "numeric", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function daysUntil(value) {
+  if (!value) return null;
+  const diff = Math.ceil((new Date(value) - new Date()) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  return `In ${diff}d`;
 }
 
 function StatusPill({ ok, label }) {
@@ -32,6 +45,12 @@ export default function TestEmailsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(null);
+
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [selectedEventIds, setSelectedEventIds] = useState([]);
+  const [eventRecipients, setEventRecipients] = useState(null);
+  const [eventRecipientsLoading, setEventRecipientsLoading] = useState(false);
 
   const [type, setType] = useState("custom");
   const [recipientMode, setRecipientMode] = useState("custom");
@@ -56,11 +75,52 @@ export default function TestEmailsPage() {
       .catch(() => setLoading(false));
   };
 
+  const loadEvents = () => {
+    setEventsLoading(true);
+    fetch("/api/admin/deadline-events?days=90", { headers: { Authorization: `Bearer ${token()}` } })
+      .then((r) => r.json())
+      .then((data) => setEvents(data.events || []))
+      .catch(() => {})
+      .finally(() => setEventsLoading(false));
+  };
+
   useEffect(() => {
     if (!token()) { router.push("/auth?mode=login"); return; }
     loadStatus();
+    loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // Preview which users would receive an email for the currently selected events
+  useEffect(() => {
+    if (selectedEventIds.length === 0) {
+      setEventRecipients(null);
+      return;
+    }
+    setEventRecipientsLoading(true);
+    fetch("/api/admin/deadline-events/recipients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ eventIds: selectedEventIds }),
+    })
+      .then((r) => r.json())
+      .then((data) => setEventRecipients(data.users || []))
+      .catch(() => setEventRecipients([]))
+      .finally(() => setEventRecipientsLoading(false));
+  }, [selectedEventIds]);
+
+  const toggleEvent = (id) => {
+    setSelectedEventIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      if (next.length > 0) {
+        setRecipientMode("event-users");
+        setType("deadline");
+      } else if (recipientMode === "event-users") {
+        setRecipientMode("custom");
+      }
+      return next;
+    });
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -72,6 +132,10 @@ export default function TestEmailsPage() {
     }
     if (recipientMode === "custom" && !emails.trim()) {
       toast.error("Enter at least one email address");
+      return;
+    }
+    if (recipientMode === "event-users" && selectedEventIds.length === 0) {
+      toast.error("Select at least one event");
       return;
     }
 
@@ -88,6 +152,7 @@ export default function TestEmailsPage() {
           subject,
           message,
           days,
+          eventIds: selectedEventIds,
         }),
       });
       const data = await res.json();
@@ -158,6 +223,84 @@ export default function TestEmailsPage() {
           </p>
         </div>
 
+        {/* Upcoming deadlines */}
+        <div className="bg-white p-6 rounded-xl shadow mb-6">
+          <h2 className="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-blue-600" /> Upcoming Deadlines (next 90 days)
+          </h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Select one or more events to email only the users who favorited that university. The list below the
+            table updates to show exactly who would receive it.
+          </p>
+
+          {eventsLoading ? (
+            <div className="py-8 text-center text-gray-400 text-sm">Loading events...</div>
+          ) : events.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-sm">
+              No upcoming events in the next 90 days.
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-2">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-400 text-xs border-b border-gray-100">
+                    <th className="px-2 py-2 w-8"></th>
+                    <th className="px-2 py-2">University</th>
+                    <th className="px-2 py-2">Event</th>
+                    <th className="px-2 py-2">Start</th>
+                    <th className="px-2 py-2">When</th>
+                    <th className="px-2 py-2 text-right">Favorited by</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map((ev) => {
+                    const checked = selectedEventIds.includes(ev.id);
+                    return (
+                      <tr
+                        key={ev.id}
+                        onClick={() => toggleEvent(ev.id)}
+                        className={`border-b border-gray-50 cursor-pointer transition ${checked ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                      >
+                        <td className="px-2 py-2">
+                          <input type="checkbox" checked={checked} onChange={() => toggleEvent(ev.id)} className="accent-blue-600" />
+                        </td>
+                        <td className="px-2 py-2 font-medium text-gray-800">{ev.university_name}</td>
+                        <td className="px-2 py-2 text-gray-600">{ev.event_type || "Event"}</td>
+                        <td className="px-2 py-2 text-gray-600">{formatDate(ev.start_date)}</td>
+                        <td className="px-2 py-2 text-gray-500">{daysUntil(ev.start_date)}</td>
+                        <td className="px-2 py-2 text-right text-gray-600">{ev.favorited_users}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {selectedEventIds.length > 0 && (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                Recipients for {selectedEventIds.length} selected event{selectedEventIds.length !== 1 ? "s" : ""}
+                {eventRecipients ? ` (${eventRecipients.length})` : ""}
+              </p>
+              {eventRecipientsLoading ? (
+                <p className="text-sm text-gray-400">Loading recipients...</p>
+              ) : eventRecipients && eventRecipients.length === 0 ? (
+                <p className="text-sm text-gray-400">No users have favorited these universities yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {eventRecipients?.map((u) => (
+                    <span key={u.id} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-1">
+                      {u.name ? `${u.name} · ` : ""}{u.email}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Send form */}
         <div className="bg-white p-6 rounded-xl shadow">
           <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -213,6 +356,10 @@ export default function TestEmailsPage() {
                   />
                 </div>
               </>
+            ) : selectedEventIds.length > 0 ? (
+              <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                Using {selectedEventIds.length} selected event{selectedEventIds.length !== 1 ? "s" : ""} from the table above.
+              </p>
             ) : (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Days window</label>
@@ -225,7 +372,7 @@ export default function TestEmailsPage() {
                   onChange={(e) => setDays(e.target.value)}
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  Pulls up to 10 real upcoming university events in this window and sends the actual reminder digest email.
+                  No events selected above — pulls up to 10 real upcoming events in this window instead.
                 </p>
               </div>
             )}
@@ -251,9 +398,23 @@ export default function TestEmailsPage() {
                 >
                   Existing users
                 </button>
+                <button
+                  type="button"
+                  disabled={selectedEventIds.length === 0}
+                  onClick={() => setRecipientMode("event-users")}
+                  className={`flex-1 border rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    selectedEventIds.length === 0
+                      ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                      : recipientMode === "event-users"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Users of selected event(s){eventRecipients ? ` (${eventRecipients.length})` : ""}
+                </button>
               </div>
 
-              {recipientMode === "custom" ? (
+              {recipientMode === "custom" && (
                 <textarea
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                   value={emails}
@@ -261,7 +422,9 @@ export default function TestEmailsPage() {
                   placeholder="one@example.com, two@example.com&#10;or one per line"
                   rows={3}
                 />
-              ) : (
+              )}
+
+              {recipientMode === "users" && (
                 <div className="flex items-center gap-3">
                   <input
                     type="number"
@@ -275,6 +438,12 @@ export default function TestEmailsPage() {
                     users (first {userLimit || 0} of {status?.usersCount ?? 0}, by signup order)
                   </span>
                 </div>
+              )}
+
+              {recipientMode === "event-users" && (
+                <p className="text-xs text-gray-400">
+                  See the recipients list above the form — it shows exactly who will receive this email.
+                </p>
               )}
             </div>
 

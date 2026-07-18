@@ -9,6 +9,31 @@ const WELCOME_MSG = {
   text: "Hello! I'm **SAG AI**, your smart admission guide.\n\nI can help you with:\n• University merits & eligibility\n• Scholarships & fees\n• Program & campus info\n\nEach answer shows both our **verified database** and a **broader web perspective**.",
 };
 
+const STORAGE_PREFIX = "sag_chat_history_";
+const MAX_STORED_MESSAGES = 60;
+
+function loadStoredMessages(userId) {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}${userId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredMessages(userId, messages) {
+  try {
+    localStorage.setItem(
+      `${STORAGE_PREFIX}${userId}`,
+      JSON.stringify(messages.slice(-MAX_STORED_MESSAGES))
+    );
+  } catch {
+    // storage full or unavailable — non-fatal
+  }
+}
+
 function TypingDots() {
   return (
     <div className="flex items-center gap-1 px-4 py-3">
@@ -222,6 +247,7 @@ export default function ChatbotWidget() {
   const [hasUnread, setHasUnread] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [storageKey, setStorageKey] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -236,10 +262,14 @@ export default function ChatbotWidget() {
         } else {
           setIsLoggedIn(false);
           setUserProfile(null);
+          setStorageKey(null);
+          setMessages([WELCOME_MSG]);
         }
       } catch {
         setIsLoggedIn(false);
         setUserProfile(null);
+        setStorageKey(null);
+        setMessages([WELCOME_MSG]);
       }
     };
     checkAuth();
@@ -253,11 +283,23 @@ export default function ChatbotWidget() {
       if (res.ok) {
         const data = await res.json();
         setUserProfile(data);
+        const userId = data?.user?.id;
+        if (userId) {
+          const stored = loadStoredMessages(userId);
+          setMessages(stored || [WELCOME_MSG]);
+          setStorageKey(userId);
+        }
       }
     } catch {
       console.error("Failed to fetch profile");
     }
   };
+
+  // Persist the conversation for this user so it survives reloads/restarts
+  useEffect(() => {
+    if (!storageKey) return;
+    saveStoredMessages(storageKey, messages);
+  }, [messages, storageKey]);
 
   useEffect(() => {
     const handler = () => setIsOpen(true);
