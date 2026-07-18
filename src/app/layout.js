@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Agentation } from "agentation";
 import { Toaster } from "sonner";
+import SessionGuard from "@/components/SessionGuard";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`}>
+        <SessionGuard />
         {children}
         <Toaster position="top-right" richColors closeButton />
         {process.env.NODE_ENV === "development" && <Agentation />}

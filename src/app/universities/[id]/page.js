@@ -33,6 +33,31 @@ function formatEventType(type) {
   if (!type) return type;
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+const PROGRAM_KEYWORDS_BY_LEVEL = {
+  fa: ["mass communication", "journalism", "law", "psychology", "economics", "sociology", "education", "political", "english", "fine arts", "history", "international relations", "islamic"],
+  fsc_medical: ["mbbs", "medicine", "pharmacy", "dentistry", "physiotherapy", "nursing", "biotechnology", "microbiology", "biomedical", "veterinary", "public health", "nutrition"],
+  fsc_engineering: ["engineering", "architecture", "civil", "mechanical", "electrical", "chemical", "aerospace", "environmental", "mechatronics"],
+  ics: ["computer", "software", "data science", "artificial intelligence", "cyber", "information technology", "it", "mathematics"],
+  icom: ["business", "bba", "accounting", "finance", "economics", "commerce", "banking", "marketing", "human resource", "supply chain", "public administration"],
+};
+
+function normalizeText(value = "") {
+  return String(value).toLowerCase();
+}
+
+function profileMatchesProgram(program, student) {
+  const haystack = `${normalizeText(program?.name)} ${normalizeText(program?.eligibility)}`;
+  const levelKeywords = PROGRAM_KEYWORDS_BY_LEVEL[student?.academic_level] || [];
+  const interestTerms = normalizeText(student?.interests)
+    .split(/[, ]+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 4);
+
+  return levelKeywords.some((term) => haystack.includes(term)) ||
+    interestTerms.some((term) => haystack.includes(term));
+}
+
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -88,6 +113,8 @@ export default function UniversityProgramsPage({ params }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [viewMode, setViewMode] = useState("personalized");
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     fetch(`/api/universities/${id}/programs`)
@@ -99,6 +126,23 @@ export default function UniversityProgramsPage({ params }) {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    if (!token) return;
+    fetch("/api/profile", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => { if (json?.student) setProfile(json); })
+      .catch(() => {});
+  }, []);
+
+  const programs = data?.programs || [];
+  const displayPrograms =
+    viewMode === "personalized" && profile?.student
+      ? programs.filter((p) => profileMatchesProgram(p, profile.student))
+      : programs;
 
   return (
     <div className="bg-gray-50 min-h-screen font-inter">
@@ -215,25 +259,59 @@ export default function UniversityProgramsPage({ params }) {
 
               {/* Programs section */}
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     <BookOpen className="w-5 h-5 text-primary" />
                     Programs Offered
                     <span className="ml-1 bg-blue-100 text-primary text-sm font-semibold px-2.5 py-0.5 rounded-full">
-                      {data.programs?.length || 0}
+                      {displayPrograms.length}
                     </span>
                   </h2>
+
+                  <div className="inline-flex bg-white border border-gray-200 rounded-xl p-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("personalized")}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                        viewMode === "personalized" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      Personalized
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("general")}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                        viewMode === "general" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      General
+                    </button>
+                  </div>
                 </div>
 
-                {data.programs?.length === 0 && (
+                {viewMode === "personalized" && !profile?.student?.academic_level && (
+                  <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                    Complete your profile to see programs suitable for you. You can still use General view.
+                  </div>
+                )}
+
+                {programs.length === 0 && (
                   <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
                     <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                     <p className="text-gray-400">No programs listed yet.</p>
                   </div>
                 )}
 
+                {programs.length > 0 && displayPrograms.length === 0 && (
+                  <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                    <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-400">No programs match your profile here. Try General view.</p>
+                  </div>
+                )}
+
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {data.programs?.map((prog) => {
+                  {displayPrograms.map((prog) => {
                     const guidance = getProgramGuidance(prog.name);
                     return (
                     <div

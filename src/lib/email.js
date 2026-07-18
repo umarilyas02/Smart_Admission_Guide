@@ -61,6 +61,15 @@ function emailShell(bodyHtml) {
 </html>`;
 }
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /* ── Password reset OTP ── */
 export const sendPasswordResetEmail = async (email, otp) => {
   const html = emailShell(`
@@ -101,6 +110,27 @@ export const sendWelcomeEmail = async (email, name) => {
     return true;
   } catch (err) {
     console.error('sendWelcomeEmail error:', err.message);
+    return false;
+  }
+};
+
+/* ── Custom / test email (sent from admin panel) ── */
+export const sendCustomTestEmail = async (email, subject, message) => {
+  const html = emailShell(`
+    <span style="display:inline-block;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;
+                 border-radius:20px;font-size:11px;font-weight:600;padding:3px 10px;margin-bottom:12px;">
+      TEST EMAIL
+    </span>
+    <h2 style="margin:12px 0 8px;color:#1e293b;font-size:20px;">${escapeHtml(subject)}</h2>
+    <p style="margin:0;color:#64748b;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(message)}</p>
+    <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;">This message was sent from the Smart Admission Guide admin panel.</p>
+  `);
+
+  try {
+    await transporter.sendMail({ from: FROM, to: email, subject: `[Test] ${subject}`, html });
+    return true;
+  } catch (err) {
+    console.error('sendCustomTestEmail error:', err.message);
     return false;
   }
 };

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle, Mail } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { runScrape } from "@/app/actions/scrape";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -396,6 +396,18 @@ export default function AdminDashboard() {
             <div className="mt-4">
               <a href="/admin/chatbot-queries" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                 View logs →
+              </a>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transform transition duration-300">
+            <h3 className="text-gray-600 text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Mail className="w-4 h-4" /> Email Testing
+            </h3>
+            <p className="text-sm text-gray-500">Send test &amp; deadline reminder emails</p>
+            <div className="mt-4">
+              <a href="/admin/test-emails" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                Open →
               </a>
             </div>
           </div>

@@ -5,21 +5,12 @@ import Link from "next/link";
 import {
   GraduationCap, ClipboardList, Sparkles, Clock, Target,
   Settings, Monitor, HeartPulse, BarChart2, Palette, FlaskConical,
-  Zap, Rocket, RefreshCw, AlertTriangle, Check, ChevronDown, User,
+  Zap, Rocket, RefreshCw, AlertTriangle, Check, User,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import Breadcrumb from "@/components/Breadcrumb";
-
-const LEVEL_OPTIONS = [
-  { value: "matric",          label: "Matric" },
-  { value: "fa",              label: "Intermediate — FA (Arts)" },
-  { value: "fsc_medical",     label: "Intermediate — FSc Pre-Medical" },
-  { value: "fsc_engineering", label: "Intermediate — FSc Pre-Engineering" },
-  { value: "ics",             label: "Intermediate — ICS (Computer Science)" },
-  { value: "icom",            label: "Intermediate — ICom (Commerce)" },
-];
 
 const LEVEL_LABELS = {
   matric:          "Matric",
@@ -75,9 +66,19 @@ export default function QuizPage() {
   // Fetch profile on mount if logged in; prefetch questions immediately
   useEffect(() => {
     const token = typeof window !== "undefined" && localStorage.getItem("auth_token");
-    if (!token) return;
+    if (!token) {
+      window.location.href = "/auth?mode=login";
+      return;
+    }
     fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (r.status === 401) {
+          localStorage.removeItem("auth_token");
+          window.location.href = "/auth?mode=login";
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
       .then(data => {
         if (!data) return;
         setProfile(data);
@@ -236,25 +237,18 @@ export default function QuizPage() {
               </div>
             )}
 
-            {/* Level picker — shown when not logged in or profile has no level */}
+            {/* Prompt to complete profile — shown when profile has no academic level yet */}
             {!hasProfile && (
-              <div className="mb-5">
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Select your education level to get started
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedLevel}
-                    onChange={e => setSelectedLevel(e.target.value)}
-                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 pr-10 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 transition"
-                  >
-                    <option value="">Choose your level…</option>
-                    {LEVEL_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
+              <div className="mb-5 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-700 mb-3">
+                  Complete your profile first so recommendations use your marks, stream, and interests.
+                </p>
+                <Link
+                  href="/dashboard/profile-progress"
+                  className="inline-block bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition font-semibold text-sm"
+                >
+                  Complete Your Profile
+                </Link>
               </div>
             )}
 
@@ -277,18 +271,20 @@ export default function QuizPage() {
               </div>
             </div>
 
-            {prefetchedQuestions && prefetchLevel === effectiveLevel && (
+            {hasProfile && prefetchedQuestions && prefetchLevel === effectiveLevel && (
               <p className="text-xs text-green-600 font-medium text-center mb-2 flex items-center justify-center gap-1">
                 <Check className="w-3.5 h-3.5" /> Questions ready — quiz will start instantly
               </p>
             )}
-            <button
-              onClick={handleStart}
-              disabled={!effectiveLevel}
-              className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition font-semibold text-base disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {prefetchedQuestions && prefetchLevel === effectiveLevel ? "Start Guidance" : "Generate My Guidance"}
-            </button>
+            {hasProfile && (
+              <button
+                onClick={handleStart}
+                disabled={!effectiveLevel}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition font-semibold text-base disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {prefetchedQuestions && prefetchLevel === effectiveLevel ? "Start Guidance" : "Generate My Guidance"}
+              </button>
+            )}
           </div>
         )}
 

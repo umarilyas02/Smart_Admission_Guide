@@ -24,6 +24,7 @@ const SEGMENT_LABELS = {
   "entry-tests": "Entry Tests",
   "chatbot-queries": "Chatbot Queries",
   settings: "Settings",
+  "test-emails": "Email Testing",
 };
 
 export default function Breadcrumb({ items }) {
