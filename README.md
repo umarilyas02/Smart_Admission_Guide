@@ -1,36 +1,64 @@
-# Smart Admission Guide (SAG)
+<div align="center">
 
-An AI-powered university admission platform for Pakistani intermediate students. SAG helps students find matching universities, check admission chances, generate application documents, and track deadlines — all in one place.
+# 🎓 Smart Admission Guide
+
+**An AI-powered university admission platform for Pakistani intermediate students.**
+
+Find matching universities, check your admission chances, generate application documents, and never miss a deadline — all in one place.
+
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![PostgreSQL](https://img.shields.io/badge/Postgres-Neon-4169E1?logo=postgresql&logoColor=white)](https://neon.tech/)
+[![Claude API](https://img.shields.io/badge/AI-Claude-D97757?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
+
+[Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Project Structure](#-project-structure) • [Deployment](#-deployment)
+
+</div>
 
 ---
 
-## Tech Stack
+## 📖 About
+
+Choosing a university in Pakistan means digging through dozens of separate websites, each with its own admission dates, merit criteria, and application process — and most of that information changes every year. **Smart Admission Guide (SAG)** solves this by centralizing everything in one place: it aggregates university and program data, estimates a student's admission probability using historical merit trends, recommends programs through a career-aptitude quiz, and auto-generates application paperwork, all backed by an AI chatbot that can answer admission questions in real time.
+
+It's built for FSc/A-Level students in Pakistan who are applying to universities and don't want to track ten browser tabs and a dozen deadlines by hand.
+
+## ✨ Features
+
+- 🏫 **University Explorer** — browse and filter universities and their degree programs
+- 📊 **Admission Probability Checker** — estimates your chances using historical closing-merit data
+- 🧭 **Career Aptitude Quiz** — recommends programs based on a student's interests and strengths
+- 📄 **Application Pack Generator** — auto-generates application documents as PDFs (PDFKit)
+- 🔔 **Deadline Reminders** — tracks admission events and emails reminders before they close
+- 🤖 **AI Chatbot** — Claude-powered assistant for admission-related questions, logged for review
+- 🔐 **Auth** — email/password with JWT sessions, plus Google OAuth one-tap sign-in
+- 🛠️ **Admin Panel** — manage universities, programs, entry tests, students, and notifications; trigger the scraper/data-sync pipeline from the UI
+- 🔄 **Automated Data Pipeline** — a Cloudflare Worker scrapes university sites, a Python script cleans and normalizes the data, then posts it into the database
+
+## 🧱 Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Framework | Next.js 16 (App Router) |
-| Styling | Tailwind CSS v4 |
-| Icons | Lucide React |
+| UI | React 19, Tailwind CSS v4, Lucide Icons |
 | Database | PostgreSQL via Neon (serverless) |
 | Auth | JWT + Google OAuth |
 | AI | Claude API (Haiku — chatbot & date correction) |
-| PDF | PDFKit |
+| Documents | PDFKit |
 | Scraper | Cloudflare Worker (deployed separately) |
 | Data pipeline | Python 3 (`scripts/auto_post_clean_data.py`) |
 | Email | Nodemailer + Gmail SMTP |
+| Deployment | Vercel |
 
----
+## 🚀 Getting Started
 
-## Prerequisites
+### Prerequisites
 
 - Node.js 18+
 - Python 3.10+ with pip
 - A [Neon](https://neon.tech) PostgreSQL database
 - A [Cloudflare Workers](https://workers.cloudflare.com) account (for the scraper)
-
----
-
-## Setup
 
 ### 1. Install dependencies
 
@@ -41,7 +69,7 @@ pip install -r scripts/requirements.txt
 
 ### 2. Configure environment
 
-Copy the variables below into `.env.local` at the project root:
+Create a `.env.local` file at the project root:
 
 ```env
 # Database (Neon)
@@ -75,15 +103,15 @@ CLOUDFLARE_WORKER_URL=https://your-worker.workers.dev
 REMINDER_SECRET=any-secret-string
 ```
 
-### 3. Apply database schema
+### 3. Apply the database schema
 
 ```bash
 node scripts/apply-schema.js
 ```
 
-This is safe to re-run — all statements use `CREATE TABLE IF NOT EXISTS` and `ADD COLUMN IF NOT EXISTS`.
+Safe to re-run — every statement uses `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`.
 
-### 4. Run the development server
+### 4. Run the dev server
 
 ```bash
 npm run dev
@@ -91,37 +119,25 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
----
+## 🔄 Data Pipeline — How University Data Gets In
 
-## Data Pipeline — How University Data Gets In
+The Cloudflare Worker and the Next.js app are **not automatically linked** — data is loaded in two manual steps.
 
-The Cloudflare Worker and the Next.js app are **not automatically linked**. Data is loaded manually in two steps:
-
-### Step 1 — Run the Cloudflare Worker
-
-The worker (`scripts/cloudflare-worker.js`) is deployed to Cloudflare Workers. It visits each university's website, strips the HTML, and returns structured JSON. **It must be deployed and triggered manually** — it does not run on a schedule.
-
-To fetch fresh data, hit the worker URL (or use the Admin → Scrape & Sync button in the app):
+**Step 1 — Run the Cloudflare Worker.** `scripts/cloudflare-worker.js` is deployed to Cloudflare Workers. It visits each university's website, strips the HTML, and returns structured JSON. It must be triggered manually (no schedule):
 
 ```bash
 curl https://your-worker.workers.dev > data.json
 ```
 
-The Admin panel button does this automatically: it calls `CLOUDFLARE_WORKER_URL`, saves `data.json`, then immediately runs the Python script.
+The Admin panel's **Scrape & Sync** button does this automatically — it calls `CLOUDFLARE_WORKER_URL`, saves `data.json`, then runs the Python cleaning script.
 
-### Step 2 — Run the Python cleaning script
+**Step 2 — Run the Python cleaning script.**
 
 ```bash
 python scripts/auto_post_clean_data.py
 ```
 
-This reads `data.json` and extracts:
-- Admission dates (regex + optional Claude correction for OCR typos)
-- Programs offered
-- Campus location
-- Fee structure URL
-
-Then POSTs the cleaned records to `POST /api/universities`, which upserts them into the database.
+This reads `data.json` and extracts admission dates (regex + optional Claude correction for OCR typos), programs offered, campus location, and fee-structure URLs, then POSTs the cleaned records to `POST /api/universities`, which upserts them into the database.
 
 To refresh **only** location and fee-structure links without touching events or programs:
 
@@ -130,17 +146,13 @@ python scripts/scrape_locations_fees.py --dry-run   # preview only
 python scripts/scrape_locations_fees.py             # post to DB
 ```
 
-### Python env variables
-
-| Variable | Default | Purpose |
+| Python env variable | Default | Purpose |
 |---|---|---|
 | `TARGET_URL` | production URL | Where to POST cleaned data |
 | `REPLACE` | `false` | `true` = delete all then re-insert; `false` = upsert |
 | `ANTHROPIC_API_KEY` | (none) | Enables Claude date-typo correction (optional) |
 
----
-
-## Available Scripts
+## 📜 Available Scripts
 
 | Command | What it does |
 |---|---|
@@ -152,9 +164,7 @@ python scripts/scrape_locations_fees.py             # post to DB
 | `python scripts/auto_post_clean_data.py` | Clean `data.json` and post to DB |
 | `python scripts/scrape_locations_fees.py` | Refresh only location + fee URLs |
 
----
-
-## Project Structure
+## 📂 Project Structure
 
 ```
 Smart_Admission_Guide/
@@ -164,48 +174,18 @@ Smart_Admission_Guide/
 │   │   ├── layout.js                    # Root layout
 │   │   ├── auth/                        # Login / Register / Forgot / Reset password
 │   │   ├── dashboard/                   # Student dashboard (login required)
-│   │   │   ├── page.js                  # Dashboard home
-│   │   │   ├── profile-progress/        # Complete profile form
-│   │   │   └── notifications/           # Notification inbox
-│   │   ├── universities/
-│   │   │   ├── page.js                  # Browse all universities
-│   │   │   └── [id]/page.js             # University detail + programs
-│   │   ├── quiz/page.js                 # Career aptitude quiz
+│   │   ├── universities/                # Browse universities + program detail
+│   │   ├── quiz/                        # Career aptitude quiz
 │   │   ├── admission-probability/       # Check admission chances
 │   │   ├── academic-background/         # Academic info entry
 │   │   ├── application-pack/            # Generate PDF application docs
-│   │   ├── about/page.js                # About page
+│   │   ├── about/                       # About page
 │   │   ├── admin/                       # Admin panel (admin role required)
-│   │   │   ├── page.js                  # Stats dashboard + Scrape & Sync
-│   │   │   ├── universities/            # Manage university records
-│   │   │   ├── programs/                # Manage programs
-│   │   │   ├── students/                # View registered students
-│   │   │   ├── entry-tests/             # Manage entry test info
-│   │   │   ├── notifications/           # Send notifications to users
-│   │   │   ├── chatbot-queries/         # View chatbot query logs
-│   │   │   └── settings/                # Admin settings
-│   │   ├── api/                         # Next.js API routes
-│   │   │   ├── auth/                    # login, signup, google, forgot/reset-password
-│   │   │   ├── universities/            # CRUD + [id]/programs sub-route
-│   │   │   ├── admin/                   # stats, students, programs, notifications, entry-tests
-│   │   │   ├── chatbot/                 # AI chatbot + query logs
-│   │   │   ├── documents/generate/      # PDF generation
-│   │   │   ├── notifications/           # Per-user notifications
-│   │   │   ├── profile/                 # Get / update student profile
-│   │   │   ├── quiz/recommend/          # Quiz-based recommendations
-│   │   │   ├── reminders/send/          # Admission deadline reminders
-│   │   │   ├── admission-form/          # Admission form schema + submit
-│   │   │   └── health/db/               # DB health check
+│   │   ├── api/                         # Next.js API routes (auth, universities, admin, chatbot, ...)
 │   │   └── actions/scrape.js            # Server action: fetch worker → run Python
-│   ├── components/
-│   │   ├── Navbar.js
-│   │   ├── Footer.js
-│   │   ├── ChatbotWidget.js             # Floating AI chat (global)
-│   │   ├── HeroSection.js
-│   │   ├── DashboardLayout.js
-│   │   └── AdminLayout.js
+│   ├── components/                      # Navbar, Footer, ChatbotWidget, layouts, ...
 │   └── lib/
-│       ├── db.js                        # PostgreSQL query helpers (query / queryOne / queryMany)
+│       ├── db.js                        # PostgreSQL query helpers
 │       ├── auth.js                      # JWT sign / verify helpers
 │       ├── schema.sql                   # Full DB schema (source of truth)
 │       ├── email.js                     # Nodemailer setup
@@ -215,16 +195,13 @@ Smart_Admission_Guide/
 │   ├── auto_post_clean_data.py          # Main data pipeline (clean + post)
 │   ├── scrape_locations_fees.py         # Focused location/fee updater
 │   ├── apply-schema.js                  # DB migration runner
-│   ├── requirements.txt                 # Python deps (requests, anthropic)
-│   └── README.md                        # Pipeline-specific docs
+│   └── requirements.txt                 # Python deps (requests, anthropic)
 ├── data.json                            # Raw worker output (auto-generated, not committed)
 ├── clean_data.json                      # Cleaned pipeline output (auto-generated)
 └── .env.local                           # Environment variables — never commit this file
 ```
 
----
-
-## Database Schema (key tables)
+## 🗄️ Database Schema (key tables)
 
 | Table | Purpose |
 |---|---|
@@ -238,43 +215,41 @@ Smart_Admission_Guide/
 | `chat_logs` | Chatbot query history |
 | `admissions` | Student application records |
 | `scholarships` | Scholarship info per university |
-| `quiz_questions` | Career aptitude quiz questions |
-| `quizzes` | Student quiz attempts + scores |
+| `quiz_questions` / `quizzes` | Career aptitude quiz + student attempts |
 | `recommendations` | AI program recommendations per student |
 | `documents` | Uploaded student documents |
 | `merit_history` | Historical closing merit per program/year |
 
----
+## 🔐 Authentication
 
-## Authentication
-
-- JWT stored in `localStorage` as `auth_token`
-- Token expires after 24 hours
+- JWT stored in `localStorage` as `auth_token`, expires after 24 hours
 - Google OAuth available via one-tap sign-in
 - Admin access: users with `role = 'admin'` in the `users` table
-
-To make a user an admin run directly on the database:
 
 ```sql
 UPDATE users SET role = 'admin' WHERE email = 'your@email.com';
 ```
 
----
+## ☁️ Deployment
 
-## Deployment
-
-The app deploys to **Vercel**. The database is hosted on **Neon** (serverless Postgres).
+The app deploys to **Vercel**; the database is hosted on **Neon** (serverless Postgres).
 
 On first deploy:
 1. Set all env vars in the Vercel dashboard
-2. Run `node scripts/apply-schema.js` once (with the production `DATABASE_URL`)
+2. Run `node scripts/apply-schema.js` once against the production `DATABASE_URL`
 3. Deploy the Cloudflare worker from `scripts/cloudflare-worker.js`
-4. Set `CLOUDFLARE_WORKER_URL` in Vercel env vars to the deployed worker URL
+4. Set `CLOUDFLARE_WORKER_URL` in Vercel to the deployed worker URL
+
+## ⚠️ Known Limitations
+
+- The Cloudflare Worker has a 30-second CPU limit — it may time out on slow university websites.
+- Fee-structure URLs are declared statically in the worker config; universities without a public fee page have `null`.
+- Universities with no parseable admission dates are stored with `status: "Not Declared"` and null date fields, but still appear in the listing.
 
 ---
 
-## Known Limitations
+<div align="center">
 
-- The Cloudflare Worker has a 30-second CPU limit — it may time out if a university's website is slow to respond.
-- Fee structure URLs are declared statically in the worker config. Universities without a public fee page have `null`.
-- Universities with no parseable admission dates are stored with `status: "Not Declared"` and null date fields — they still appear in the listing.
+Built by [umarilyas02](https://github.com/umarilyas02)
+
+</div>
